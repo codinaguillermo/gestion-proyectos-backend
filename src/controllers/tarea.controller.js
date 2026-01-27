@@ -55,8 +55,65 @@ const obtenerTareasProyecto = async (req, res) => {
     }
 };
 
+// ACTUALIZAR TAREA (PUT)
+const actualizarTarea = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { titulo, descripcion, estado, prioridad } = req.body;
+
+        // 1. Verificar si existe
+        const tarea = await Tarea.findByPk(id);
+        if (!tarea) {
+            return res.status(404).json({ mensaje: "Tarea no encontrada" });
+        }
+
+        // 2. Actualizar
+        // update devuelve un array con el número de filas afectadas
+        await Tarea.update(
+            { titulo, descripcion, estado, prioridad },
+            { where: { id } }
+        );
+
+        // 3. Devolver la tarea actualizada
+        const tareaActualizada = await Tarea.findByPk(id);
+        
+        return res.json({
+            mensaje: "Tarea actualizada",
+            tarea: tareaActualizada
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al actualizar tarea" });
+    }
+};
+
+// ELIMINAR TAREA (DELETE)
+const eliminarTarea = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Verificar existencia
+        const tarea = await Tarea.findByPk(id);
+        if (!tarea) {
+            return res.status(404).json({ mensaje: "Tarea no encontrada" });
+        }
+
+        // 2. Eliminar
+        await Tarea.destroy({ where: { id } });
+
+        return res.json({ mensaje: "Tarea eliminada correctamente" });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al eliminar tarea" });
+    }
+};
+
 // EXPORTACIÓN BLINDADA
 module.exports = {
     crearTarea,
-    obtenerTareasProyecto
+    obtenerTareasProyecto,
+    actualizarTarea, 
+    eliminarTarea
 };

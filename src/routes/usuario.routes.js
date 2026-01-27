@@ -10,6 +10,9 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 // Ruta Pública (Crear usuario)
 router.post('/', usuarioController.crearUsuario);
 
+// PUT /api/usuarios/perfil
+router.put('/perfil', verificarToken, usuarioController.actualizarUsuario);
+
 // --- RUTA NUEVA ---
 // GET /api/usuarios (Protegida)
 // 3. Pasamos la función 'verificarToken', no el objeto

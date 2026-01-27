@@ -10,5 +10,6 @@ router.use(verificarToken);
 // Si proyectoController.crearProyecto es undefined, aquí explota.
 router.post('/', proyectoController.crearProyecto);
 router.get('/', proyectoController.obtenerProyectos);
-
+router.put('/:id', proyectoController.actualizarProyecto);
+router.delete('/:id', proyectoController.eliminarProyecto);
 module.exports = router;

@@ -27,6 +27,51 @@ const crearProyecto = async (req, res) => {
     }
 };
 
+// ACTUALIZAR PROYECTO
+const actualizarProyecto = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, descripcion, estado } = req.body;
+
+        const proyecto = await Proyecto.findByPk(id);
+        if (!proyecto) {
+            return res.status(404).json({ mensaje: "Proyecto no encontrado" });
+        }
+
+        // Seguridad simple: Solo el dueño puede editar (opcional, pero recomendado)
+        if (proyecto.docente_owner_id !== req.usuario.id) {
+            return res.status(403).json({ mensaje: "No tienes permiso para editar este proyecto" });
+        }
+
+        await Proyecto.update({ nombre, descripcion, estado }, { where: { id } });
+
+        return res.json({ mensaje: "Proyecto actualizado" });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al actualizar" });
+    }
+};
+
+// ELIMINAR PROYECTO
+const eliminarProyecto = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const proyecto = await Proyecto.findByPk(id);
+        if (!proyecto) return res.status(404).json({ mensaje: "No encontrado" });
+
+        if (proyecto.docente_owner_id !== req.usuario.id) {
+            return res.status(403).json({ mensaje: "No tienes permiso" });
+        }
+
+        await Proyecto.destroy({ where: { id } });
+        return res.json({ mensaje: "Proyecto eliminado" });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al eliminar" });
+    }
+};
+
 const obtenerProyectos = async (req, res) => {
     try {
         const proyectos = await Proyecto.findAll({
@@ -42,5 +87,7 @@ const obtenerProyectos = async (req, res) => {
 // EXPORTACIÓN CLAVE
 module.exports = {
     crearProyecto,
-    obtenerProyectos
+    obtenerProyectos,
+    actualizarProyecto,
+    eliminarProyecto
 };

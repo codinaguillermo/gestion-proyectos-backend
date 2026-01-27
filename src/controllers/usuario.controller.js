@@ -30,6 +30,32 @@ const crearUsuario = async (req, res) => {
     }
 };
 
+const actualizarUsuario = async (req, res) => {
+    try {
+        // El ID lo sacamos del token (req.usuario.id) para que uno solo se edite a sí mismo
+        const id = req.usuario.id; 
+        const { nombre, email, password } = req.body;
+
+        const usuario = await Usuario.findByPk(id);
+        
+        let datosAActualizar = { nombre, email };
+
+        // Si mandó password, lo encriptamos
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            datosAActualizar.password_hash = await bcrypt.hash(password, salt);
+        }
+
+        await Usuario.update(datosAActualizar, { where: { id } });
+
+        return res.json({ mensaje: "Perfil actualizado correctamente" });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al actualizar perfil" });
+    }
+};
+
 // Función para listar usuarios (Protegida, solo para ver quién está en el sistema)
 const listarUsuarios = async (req, res) => {
     try {
@@ -50,5 +76,6 @@ const listarUsuarios = async (req, res) => {
 // EXPORTACIÓN IMPORTANTE: Asegúrate de que están las dos funciones aquí
 module.exports = {
     crearUsuario,
-    listarUsuarios
+    listarUsuarios,
+    actualizarUsuario
 };

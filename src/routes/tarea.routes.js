@@ -9,7 +9,13 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 router.use(verificarToken);
 
 // Definimos las rutas
+// Crear Tarea
 router.post('/', tareaController.crearTarea);
+// PUT: Editar Tarea (Ej: http://localhost:3000/api/tareas/2)
+router.put('/:id', tareaController.actualizarTarea);
+// DELETE: Borrar Tarea
+router.delete('/:id', tareaController.eliminarTarea);
+
 router.get('/proyecto/:proyecto_id', tareaController.obtenerTareasProyecto);
 
 module.exports = router;
