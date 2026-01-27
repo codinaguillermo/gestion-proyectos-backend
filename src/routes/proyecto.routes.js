@@ -1,14 +1,14 @@
-// src/routes/proyecto.routes.js
 const express = require('express');
 const router = express.Router();
 const proyectoController = require('../controllers/proyecto.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
+const { verificarToken } = require('../middlewares/auth.middleware');
 
-// Crear (POST)
-router.post('/', authMiddleware, proyectoController.crearProyecto);
+// 1. Proteger todas las rutas
+router.use(verificarToken);
 
-// --- AGREGAR ESTO ---
-// Listar mis proyectos (GET)
-router.get('/', authMiddleware, proyectoController.listarMisProyectos);
+// 2. Definir las rutas usando las funciones del controlador
+// Si proyectoController.crearProyecto es undefined, aquí explota.
+router.post('/', proyectoController.crearProyecto);
+router.get('/', proyectoController.obtenerProyectos);
 
 module.exports = router;

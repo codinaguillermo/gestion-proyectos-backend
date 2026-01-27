@@ -1,4 +1,3 @@
-// src/middlewares/auth.middleware.js
 const jwt = require('jsonwebtoken');
 
 const verificarToken = (req, res, next) => {
@@ -12,7 +11,11 @@ const verificarToken = (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded; // Guardamos quien es el usuario
+        
+        // CORRECCIÓN IMPORTANTE: 
+        // Usamos 'req.usuario' para coincidir con tus controladores.
+        req.usuario = decoded; 
+        
         next(); // ¡Pase usted!
 
     } catch (error) {
@@ -20,4 +23,6 @@ const verificarToken = (req, res, next) => {
     }
 };
 
-module.exports = verificarToken;
+// CORRECCIÓN DE EXPORTACIÓN:
+// Exportamos un objeto { } para que coincida con las rutas
+module.exports = { verificarToken };

@@ -1,56 +1,54 @@
-// src/controllers/usuario.controller.js
-const { Usuario } = require('../models'); // Importa desde el index que acabamos de arreglar
+const { Usuario } = require('../models');
 
+// Función para crear un usuario (Pública, usada en el registro manual si fuera necesario)
 const crearUsuario = async (req, res) => {
     try {
-        const { nombre, email, password, rol_id } = req.body;
+        const { nombre, email, password } = req.body;
 
-        // Validación rápida
-        if (!nombre || !email || !password || !rol_id) {
-            return res.status(400).json({ 
-                error: 'Faltan datos', 
-                mensaje: 'Debes enviar nombre, email, password y rol_id' 
-            });
+        // Validación simple
+        if (!nombre || !email || !password) {
+            return res.status(400).json({ error: 'Faltan datos obligatorios' });
         }
 
-        // Crear usuario usando Sequelize
+        // Verificar duplicados
+        const existe = await Usuario.findOne({ where: { email } });
+        if (existe) {
+            return res.status(400).json({ error: 'El email ya está registrado' });
+        }
+
         const nuevoUsuario = await Usuario.create({
             nombre,
             email,
-            password_hash: password, // Recuerda: en BD se llama password_hash
-            rol_id
+            password_hash: password, // Recuerda: En producción esto se encripta
+            rol_id: 2 // Por defecto rol 2 (Alumno) si se crea por aquí
         });
 
-        // Responder al cliente (Thunder Client / Frontend)
-        return res.status(201).json({
-            mensaje: 'Usuario creado con éxito 🚀',
-            usuario: nuevoUsuario
-        });
-
+        return res.status(201).json(nuevoUsuario);
     } catch (error) {
-        console.error('Error al crear usuario:', error);
-        return res.status(500).json({ 
-            error: 'Error en el servidor', 
-            detalle: error.message 
-        });
+        console.error(error);
+        return res.status(500).json({ error: 'Error al crear usuario' });
     }
 };
 
-
+// Función para listar usuarios (Protegida, solo para ver quién está en el sistema)
 const listarUsuarios = async (req, res) => {
     try {
-        // req.user viene del token decodificado
-        console.log("Usuario solicitante ID:", req.user.id); 
+        // req.usuario viene del middleware (token)
+        console.log("Usuario que solicita:", req.usuario);
 
         const usuarios = await Usuario.findAll({
-            attributes: { exclude: ['password_hash'] } // Ocultamos el password
+            attributes: ['id', 'nombre', 'email', 'rol_id'] // No devolvemos el password por seguridad
         });
-
+        
         return res.json(usuarios);
     } catch (error) {
+        console.error(error);
         return res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 };
 
-// ¡IMPORTANTE: Exporta también la nueva función!
-module.exports = { crearUsuario, listarUsuarios };
+// EXPORTACIÓN IMPORTANTE: Asegúrate de que están las dos funciones aquí
+module.exports = {
+    crearUsuario,
+    listarUsuarios
+};

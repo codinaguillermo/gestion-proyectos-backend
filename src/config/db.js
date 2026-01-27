@@ -1,19 +1,31 @@
 // src/config/db.js
-const { Sequelize } = require('sequelize');
 require('dotenv').config();
+const { Sequelize } = require('sequelize');
 
-// Creamos la instancia de Sequelize (la conexión)
+// Configuración de la conexión
 const sequelize = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,
     process.env.DB_PASSWORD,
     {
         host: process.env.DB_HOST,
-        dialect: process.env.DB_DIALECT,
-        logging: true, // Ponlo en true si quieres ver las consultas SQL en la consola
+        dialect: 'mysql',
+        logging: false, // Ponemos false para que no llene la consola de SQL
     }
 );
 
-module.exports = sequelize;
+// Función para probar conexión
+const connectDB = async () => {
+    try {
+        await sequelize.authenticate();
+        console.log('✅ Conexión a MySQL establecida con éxito.');
+    } catch (error) {
+        console.error('❌ No se pudo conectar a la base de datos:', error);
+    }
+};
+
+// --- AQUÍ ESTABA EL PROBLEMA ---
+// Exportamos un objeto { } que contiene la instancia y la función.
+module.exports = { sequelize, connectDB };
 
 //DesarrolloWEB-

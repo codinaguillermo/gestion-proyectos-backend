@@ -2,9 +2,10 @@ const express = require('express');
 const cors = require('cors');
 
 //importar
-const usuarioRoutes = require('./src/routes/usuario.routes');
 const authRoutes = require('./src/routes/auth.routes');
+const usuarioRoutes = require('./src/routes/usuario.routes');
 const proyectoRoutes = require('./src/routes/proyecto.routes'); 
+const tareasRoutes = require('./src/routes/tarea.routes');
 
 
 require('dotenv').config();
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/proyectos', proyectoRoutes);
+app.use('/api/tareas', tareasRoutes);
 
 app.get('/', (req, res) => {
   res.send('¡API Gestor de Proyectos funcionando! 🚀');

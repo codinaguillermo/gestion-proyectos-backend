@@ -1,51 +1,81 @@
 const { Usuario } = require('../models');
 const jwt = require('jsonwebtoken');
 
+// --- FUNCIÓN NUEVA: REGISTRO ---
+const registro = async (req, res) => {
+    try {
+        const { nombre, email, password } = req.body;
+
+        // 1. Validar datos
+        if (!nombre || !email || !password) {
+            return res.status(400).json({ error: 'Faltan datos', mensaje: 'Nombre, email y password son obligatorios' });
+        }
+
+        // 2. Verificar si ya existe el email
+        const existeUsuario = await Usuario.findOne({ where: { email } });
+        if (existeUsuario) {
+            return res.status(400).json({ error: 'Email duplicado', mensaje: 'El email ya está registrado' });
+        }
+
+        // 3. Crear el usuario en la BD
+        // IMPORTANTE: Mapeamos 'password' (del body) a 'password_hash' (de la BD)
+        const nuevoUsuario = await Usuario.create({
+            nombre,
+            email,
+            password_hash: password, // Por ahora texto plano, luego encriptaremos
+            rol_id: 1
+        });
+
+        return res.status(201).json({
+            mensaje: 'Usuario creado exitosamente',
+            usuario: {
+                id: nuevoUsuario.id,
+                nombre: nuevoUsuario.nombre,
+                email: nuevoUsuario.email
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Error al registrar usuario' });
+    }
+};
+
+// --- FUNCIÓN EXISTENTE: LOGIN ---
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // 1. Validar que vengan los datos
         if (!email || !password) {
             return res.status(400).json({ error: 'Faltan datos', mensaje: 'Email y password obligatorios' });
         }
 
-        // 2. Buscar al usuario por Email
         const usuario = await Usuario.findOne({ where: { email } });
 
-        // Si no existe el usuario
         if (!usuario) {
             return res.status(401).json({ error: 'Credenciales inválidas' }); 
-            // Tip de seguridad: No digas "el usuario no existe", di "credenciales inválidas" para no dar pistas.
         }
 
-        // 3. Verificar la contraseña
-        // OJO: Como en el paso anterior guardamos la contraseña PLANA (sin encriptar), comparamos directo.
-        // En producción, aquí usaríamos bcrypt.compare()
         if (usuario.password_hash !== password) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        // 4. Generar el Token (El Pasaporte)
-        // Guardamos en el token datos útiles (Payload): ID, nombre y rol
         const token = jwt.sign(
             { 
                 id: usuario.id, 
                 nombre: usuario.nombre, 
                 rol_id: usuario.rol_id 
             },
-            process.env.JWT_SECRET, // La firma secreta
-            { expiresIn: '8h' } // El token expira en 8 horas (jornada laboral/escolar)
+            process.env.JWT_SECRET, 
+            { expiresIn: '8h' } 
         );
 
-        // 5. Responder
         return res.json({
             mensaje: 'Login exitoso',
             token: token,
             usuario: {
                 id: usuario.id,
-                nombre: usuario.nombre,
-                rol_id: usuario.rol_id
+                nombre: usuario.nombre
             }
         });
 
@@ -55,4 +85,5 @@ const login = async (req, res) => {
     }
 };
 
-module.exports = { login };
+// EXPORTAMOS LAS DOS FUNCIONES
+module.exports = { login, registro };

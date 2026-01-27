@@ -1,49 +1,46 @@
-// src/controllers/proyecto.controller.js
-const { Proyecto } = require('../models'); 
+const { Proyecto } = require('../models');
 
 const crearProyecto = async (req, res) => {
     try {
-        // 1. Datos del body (lo que envía el usuario)
-        const { nombre, descripcion, fecha_entrega } = req.body;
-
-        // 2. ID del usuario (viene del Token, gracias al middleware)
-        const docenteId = req.user.id; 
+        const { nombre, descripcion } = req.body;
 
         if (!nombre) {
-            return res.status(400).json({ error: 'Falta el nombre del proyecto' });
+            return res.status(400).json({ mensaje: "El nombre es obligatorio" });
         }
 
-        // 3. Creamos usando tu columna personalizada 'docente_owner_id'
+        // Usamos req.usuario.id que viene del Token
         const nuevoProyecto = await Proyecto.create({
             nombre,
             descripcion,
-            fecha_entrega,
-            docente_owner_id: docenteId, 
-            estado: 'PLANIFICACION' 
+            docente_owner_id: req.usuario.id,
+            estado: 'ABIERTO' // Forzamos el estado inicial válido
         });
 
-        return res.status(201).json(nuevoProyecto);
+        return res.status(201).json({
+            mensaje: "Proyecto creado exitosamente",
+            proyecto: nuevoProyecto
+        });
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: 'Error al crear el proyecto' });
+        return res.status(500).json({ mensaje: "Error al crear proyecto", error: error.message });
     }
 };
 
-// ... (código anterior de crearProyecto) ...
-
-const listarMisProyectos = async (req, res) => {
+const obtenerProyectos = async (req, res) => {
     try {
-        // Buscamos proyectos donde el dueño sea el usuario del Token
         const proyectos = await Proyecto.findAll({
-            where: { docente_owner_id: req.user.id } 
+            where: { docente_owner_id: req.usuario.id }
         });
-
         return res.json(proyectos);
     } catch (error) {
-        return res.status(500).json({ error: 'Error al obtener proyectos' });
+        console.error(error);
+        return res.status(500).json({ mensaje: "Error al leer proyectos" });
     }
 };
 
-// ¡NO TE OLVIDES DE AGREGARLA AQUÍ!
-module.exports = { crearProyecto, listarMisProyectos };
+// EXPORTACIÓN CLAVE
+module.exports = {
+    crearProyecto,
+    obtenerProyectos
+};
