@@ -1,29 +1,42 @@
-const { Proyecto } = require('../models');
+//const { Proyecto } = require('../models');
+const { Proyecto, Rol, Usuario, EstadoProyecto } = require('../models');
+
 
 const crearProyecto = async (req, res) => {
     try {
-        const { nombre, descripcion } = req.body;
+        const { id } = req.usuario;
 
-        if (!nombre) {
-            return res.status(400).json({ mensaje: "El nombre es obligatorio" });
+        // 1. Buscamos al usuario con su Rol para la autorización
+        const usuarioFull = await Usuario.findByPk(id, {
+            include: [{ model: Rol }]
+        });
+
+        if (!usuarioFull || !usuarioFull.rol) {
+            return res.status(403).json({ mensaje: "Usuario sin rol asignado" });
         }
 
-        // Usamos req.usuario.id que viene del Token
-        const nuevoProyecto = await Proyecto.create({
-            nombre,
-            descripcion,
-            docente_owner_id: req.usuario.id,
-            estado: 'ABIERTO' // Forzamos el estado inicial válido
-        });
+        const nombreDelRol = usuarioFull.rol.nombre; 
+        let consultaOptions = {
+            // 2. Incluimos el modelo de Estado para traer el nombre (ej: 'ABIERTO')
+            include: [{ 
+                model: EstadoProyecto,
+                attributes: ['nombre'] // Solo nos interesa el nombre del estado
+            }]
+        };
 
-        return res.status(201).json({
-            mensaje: "Proyecto creado exitosamente",
-            proyecto: nuevoProyecto
-        });
+        // 3. Aplicamos el filtro de visibilidad según el Rol de la DB
+        if (nombreDelRol !== 'DOCENTE' && nombreDelRol !== 'ADMIN') {
+            consultaOptions.where = { docente_owner_id: id };
+        }
+
+        const proyectos = await Proyecto.findAll(consultaOptions);
+        
+        return res.json(proyectos);
 
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ mensaje: "Error al crear proyecto", error: error.message });
+        // ESTO ES CLAVE: Imprimí el error completo en la consola de Node
+        console.error("DETALLE DEL ERROR:", error); 
+        return res.status(500).json({ mensaje: "Error al sincronizar roles", detalle: error.message });
     }
 };
 
@@ -74,16 +87,33 @@ const eliminarProyecto = async (req, res) => {
 
 const obtenerProyectos = async (req, res) => {
     try {
-        const proyectos = await Proyecto.findAll({
-            where: { docente_owner_id: req.usuario.id }
+        const { id } = req.usuario;
+
+        // Buscamos al usuario e incluimos su Rol (JOIN)
+        const usuarioFull = await Usuario.findByPk(id, {
+            include: [{ model: Rol }]
         });
+
+        if (!usuarioFull || !usuarioFull.rol) {
+            return res.status(403).json({ mensaje: "Usuario sin rol asignado" });
+        }
+
+        const nombreDelRol = usuarioFull.rol.nombre; 
+        let proyectos;
+
+        // Lógica basada en NOMBRES de la BD, no en números mágicos
+        if (nombreDelRol === 'DOCENTE' || nombreDelRol === 'ADMIN') {
+            proyectos = await Proyecto.findAll();
+        } else {
+            proyectos = await Proyecto.findAll({ where: { docente_owner_id: id } });
+        }
+
         return res.json(proyectos);
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ mensaje: "Error al leer proyectos" });
+        return res.status(500).json({ mensaje: "Error al sincronizar roles" });
     }
 };
-
 // EXPORTACIÓN CLAVE
 module.exports = {
     crearProyecto,

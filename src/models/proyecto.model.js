@@ -1,29 +1,33 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
-const Proyecto = sequelize.define('Proyecto', {
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-    },
-    nombre: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    descripcion: {
-        type: DataTypes.TEXT
-    },
-    // Simplificamos el estado: O está activo o es historia vieja.
-    estado: {
-        type: DataTypes.ENUM('ABIERTO', 'ARCHIVADO'),
-        defaultValue: 'ABIERTO'
+const Proyecto = sequelize.define('proyecto', {
+  // id no hace falta ponerlo, Sequelize lo asume
+  nombre: { 
+    type: DataTypes.STRING, 
+    allowNull: false 
+  },
+  descripcion: { 
+    type: DataTypes.TEXT 
+  },  
+  // Usamos el nombre exacto de tu SQL: 'estado_id'
+  estado_id: { 
+    type: DataTypes.INTEGER,
+    references: {
+      model: 'estados_proyecto',
+      key: 'id'
     }
+  },
+  docente_owner_id: { 
+    type: DataTypes.INTEGER 
+  }
 }, {
-    // Soft Delete: Si se borra, no desaparece, solo se oculta.
-    paranoid: true, 
-    underscored: true,
-    tableName: 'proyectos'
+  tableName: 'proyectos',
+  timestamps: true,
+  paranoid: true, // Coincide con tu deleted_at del SQL
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  deletedAt: 'deleted_at'
 });
 
 module.exports = Proyecto;
