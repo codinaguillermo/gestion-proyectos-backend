@@ -1,4 +1,6 @@
-const { Usuario } = require('../models');
+const { Usuario, Rol } = require('../models'); // Asegurate que Rol esté aquí
+const { Op } = require('sequelize');
+
 
 // Función para crear un usuario (Pública, usada en el registro manual si fuera necesario)
 const crearUsuario = async (req, res) => {
@@ -56,19 +58,33 @@ const actualizarUsuario = async (req, res) => {
     }
 };
 
-// Función para listar usuarios (Protegida, solo para ver quién está en el sistema)
+
+
 const listarUsuarios = async (req, res) => {
     try {
-        // req.usuario viene del middleware (token)
-        console.log("Usuario que solicita:", req.usuario);
+        const { q } = req.query; // Capturamos el término de búsqueda (ej: /usuarios?q=guille)
+        let filtro = {};
+
+        // Si viene un parámetro de búsqueda, filtramos por nombre o email
+        if (q) {
+            filtro = {
+                [Op.or]: [
+                    { nombre: { [Op.like]: `%${q}%` } },
+                    { email: { [Op.like]: `%${q}%` } }
+                ]
+            };
+        }
 
         const usuarios = await Usuario.findAll({
-            attributes: ['id', 'nombre', 'email', 'rol_id'] // No devolvemos el password por seguridad
+            where: filtro, // Aplicamos el filtro dinámico
+            attributes: ['id', 'nombre', 'email', 'rol_id'],
+            include: [{ model: Rol, attributes: ['nombre'] }], // Traemos el nombre del rol
+            limit: q ? 10 : 100 // Si busca, limitamos a los 10 mejores resultados
         });
         
         return res.json(usuarios);
     } catch (error) {
-        console.error(error);
+        console.error("Error en listar/buscar usuarios:", error);
         return res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 };

@@ -25,6 +25,7 @@ const Proyecto = sequelize.define('proyecto', {
   tableName: 'proyectos',
   timestamps: true,
   paranoid: true, // Coincide con tu deleted_at del SQL
+  underscored: true, 
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   deletedAt: 'deleted_at'

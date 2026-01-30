@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const tareaController = require('../controllers/tarea.controller');
 
-// OJO AQUÍ: Importamos con llaves y en español, igual que en proyectos
+//Importamos con llaves y en español, igual que en proyectos
 const { verificarToken } = require('../middlewares/auth.middleware');
 
 // Protegemos las rutas
@@ -17,5 +17,7 @@ router.put('/:id', tareaController.actualizarTarea);
 router.delete('/:id', tareaController.eliminarTarea);
 
 router.get('/proyecto/:proyecto_id', tareaController.obtenerTareasProyecto);
+//router.get('/config/maestras', authMiddleware, tareaController.obtenerTablasMaestras);
+router.get('/config/maestras', verificarToken, tareaController.obtenerTablasMaestras);
 
 module.exports = router;

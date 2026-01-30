@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
+const { Usuario, Rol } = require('../models'); // Importamos los modelos
 
-const verificarToken = (req, res, next) => {
+const verificarToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    // El token viene como: "Bearer eyJhbGci..."
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
@@ -12,17 +12,23 @@ const verificarToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // CORRECCIÓN IMPORTANTE: 
-        // Usamos 'req.usuario' para coincidir con tus controladores.
-        req.usuario = decoded; 
+        // BUSQUEDA EN BD: Traemos al usuario con su ROL incluido
+        const usuarioFull = await Usuario.findByPk(decoded.id, {
+            include: [{ model: Rol, as: 'rol' }] 
+        });
+
+        if (!usuarioFull) {
+            return res.status(404).json({ mensaje: "Usuario no encontrado" });
+        }
+
+        // Ahora req.usuario tiene TODO: id, email y el objeto ROL con sus permisos
+        req.usuario = usuarioFull; 
         
-        next(); // ¡Pase usted!
+        next(); 
 
     } catch (error) {
-        return res.status(401).json({ error: 'Token inválido', mensaje: 'Tu sesión expiró' });
+        return { error: 'Token inválido', mensaje: 'Tu sesión expiró' };
     }
 };
 
-// CORRECCIÓN DE EXPORTACIÓN:
-// Exportamos un objeto { } para que coincida con las rutas
 module.exports = { verificarToken };

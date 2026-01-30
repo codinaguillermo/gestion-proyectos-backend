@@ -6,10 +6,11 @@ const crearProyecto = async (req, res) => {
         const { nombre, descripcion } = req.body;
         const usuarioId = req.usuario.id;
 
+        // Buscamos el primer estado disponible (generalmente "NUEVO" o "PLANIFICACIÓN")
         const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
         
         if (!estadoInicial) {
-            return res.status(500).json({ mensaje: "Falta configurar estados en la DB" });
+            return res.status(500).json({ mensaje: "Falta configurar estados de proyecto en la DB" });
         }
 
         const nuevoProyecto = await Proyecto.create({
@@ -27,43 +28,45 @@ const crearProyecto = async (req, res) => {
         return res.status(201).json(proyectoConRelacion);
 
     } catch (error) {
-        console.error("DETALLE DEL ERROR AL CREAR:", error); 
+        console.error("Error al crear proyecto:", error); 
         return res.status(500).json({ mensaje: "Error al crear proyecto", detalle: error.message });
     }
 };
 
-// --- OBTENER PROYECTOS (Lógica limpia y sin strings) ---
+// --- OBTENER PROYECTOS ---
 const obtenerProyectos = async (req, res) => {
     try {
         const { id } = req.usuario;
 
+        // Traemos al usuario con su rol para validar permisos de visibilidad
         const usuarioFull = await Usuario.findByPk(id, {
             include: [{ model: Rol }]
         });
-        // TEST DE INGENIERÍA:
-        console.log("¿Qué llega de la DB?", {
-            nombre: usuarioFull.nombre,
-            rol: usuarioFull.rol.nombre,
-            ver_todo: usuarioFull.rol.ver_todo
-        });
-
-        console.log(`Usuario: ${usuarioFull.nombre} | Rol: ${usuarioFull.rol.nombre} | Ver Todo: ${usuarioFull.rol.ver_todo}`);
         
         if (!usuarioFull || !usuarioFull.rol) {
             return res.status(403).json({ mensaje: "Usuario sin rol asignado" });
         }
 
-        // Definimos las opciones de búsqueda CON el JOIN del estado
+        // Opciones de búsqueda: Siempre incluimos el nombre del estado
         let consultaOptions = {
-            include: [{ 
-                model: EstadoProyecto,
-                attributes: ['nombre'] 
-            }]
+            distinct: true,
+            include: [
+                { 
+                    model: EstadoProyecto,
+                    attributes: ['id', 'nombre'] 
+                },
+                {
+                    model: Usuario,
+                    as: 'integrantes', // Traemos a los alumnos vinculados
+                    attributes: ['id', 'nombre', 'email'],
+                    through: { attributes: [] } // Evita traer basura de la tabla intermedia
+                }
+            ],
+            order: [['created_At', 'DESC']]
         };
 
-        // Lógica DINÁMICA: Si el rol NO tiene ver_todo, filtramos por dueño
+        // Lógica de visibilidad: Si no es admin (ver_todo), solo ve los suyos
         if (!usuarioFull.rol.ver_todo) {
-            console.log("Aplicando filtro de seguridad: solo proyectos propios");
             consultaOptions.where = { docente_owner_id: id };
         }
 
@@ -71,7 +74,7 @@ const obtenerProyectos = async (req, res) => {
         return res.json(proyectos);
 
     } catch (error) {
-        console.error("ERROR AL OBTENER:", error);
+        console.error("Error al obtener proyectos:", error);
         return res.status(500).json({ mensaje: "Error al obtener proyectos" });
     }
 };
@@ -80,22 +83,39 @@ const obtenerProyectos = async (req, res) => {
 const actualizarProyecto = async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre, descripcion, estado_id } = req.body; // Cambiamos 'estado' por 'estado_id'
+        console.log("--- INICIO ACTUALIZAR ---");
+        console.log("ID Proyecto:", id);
+        console.log("Body recibido:", req.body);
+        const { nombre, descripcion, estado_id, usuariosIds } = req.body; // <-- Recibimos los IDs
 
         const proyecto = await Proyecto.findByPk(id);
-        if (!proyecto) return res.status(404).json({ mensaje: "No encontrado" });
+        if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
 
-        if (proyecto.docente_owner_id !== req.usuario.id) {
-            return res.status(403).json({ mensaje: "Sin permiso" });
+        // Actualización de datos básicos
+        console.log("BODY RECIBIDO:", req.body);
+        console.log("IDS EXTRAIDOS:", usuariosIds);
+        await proyecto.update({ nombre, descripcion, estado_id });
+
+        // PERSISTENCIA DE ALUMNOS: Sincroniza la tabla intermedia
+        if (usuariosIds) {
+            await proyecto.setIntegrantes(usuariosIds); // 'setIntegrantes' por el alias 'as: integrantes' del index.js
         }
 
-        // Actualizamos usando la columna correcta de la BD
-        await Proyecto.update({ nombre, descripcion, estado_id }, { where: { id } });
+        const proyectoActualizado = await Proyecto.findByPk(id, {
+            include: [
+                { model: EstadoProyecto, attributes: ['nombre'] },
+                { model: Usuario, as: 'integrantes', attributes: ['id', 'nombre', 'email'] } // <-- Incluirlos en la respuesta
+            ]
+        });
 
-        return res.json({ mensaje: "Proyecto actualizado" });
+        return res.json({ 
+            mensaje: "Proyecto actualizado con éxito", 
+            proyecto: proyectoActualizado 
+        });
+
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ mensaje: "Error al actualizar" });
+        console.error("Error al actualizar proyecto:", error);
+        return res.status(500).json({ mensaje: "Error al actualizar proyecto" });
     }
 };
 
@@ -105,17 +125,21 @@ const eliminarProyecto = async (req, res) => {
         const { id } = req.params;
         const proyecto = await Proyecto.findByPk(id);
         
-        if (!proyecto) return res.status(404).json({ mensaje: "No encontrado" });
+        if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
 
-        if (proyecto.docente_owner_id !== req.usuario.id) {
-            return res.status(403).json({ mensaje: "No tienes permiso" });
+        const esDueño = proyecto.docente_owner_id === req.usuario.id;
+        const tienePermisoGlobal = req.usuario.rol && req.usuario.rol.ver_todo === true;
+
+        if (!esDueño && !tienePermisoGlobal) {
+            return res.status(403).json({ mensaje: "No tienes permiso para eliminar este proyecto" });
         }
 
         await Proyecto.destroy({ where: { id } });
-        return res.json({ mensaje: "Proyecto eliminado" });
+        return res.json({ mensaje: "Proyecto eliminado correctamente" });
+
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ mensaje: "Error al eliminar" });
+        console.error("Error al eliminar proyecto:", error);
+        return res.status(500).json({ mensaje: "Error al eliminar proyecto" });
     }
 };
 
