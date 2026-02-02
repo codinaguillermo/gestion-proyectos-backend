@@ -1,4 +1,4 @@
-const { Proyecto, Rol, Usuario, EstadoProyecto } = require('../models');
+const { Proyecto, Rol, Usuario, EstadoProyecto, UserStory, Tarea } = require('../models');
 
 // --- CREAR PROYECTO ---
 const crearProyecto = async (req, res) => {
@@ -33,12 +33,12 @@ const crearProyecto = async (req, res) => {
     }
 };
 
-// --- OBTENER PROYECTOS ---
+
+// --- OBTENER PROYECTOS (Versión con Backlog) ---
 const obtenerProyectos = async (req, res) => {
     try {
         const { id } = req.usuario;
 
-        // Traemos al usuario con su rol para validar permisos de visibilidad
         const usuarioFull = await Usuario.findByPk(id, {
             include: [{ model: Rol }]
         });
@@ -47,7 +47,6 @@ const obtenerProyectos = async (req, res) => {
             return res.status(403).json({ mensaje: "Usuario sin rol asignado" });
         }
 
-        // Opciones de búsqueda: Siempre incluimos el nombre del estado
         let consultaOptions = {
             distinct: true,
             include: [
@@ -57,15 +56,31 @@ const obtenerProyectos = async (req, res) => {
                 },
                 {
                     model: Usuario,
-                    as: 'integrantes', // Traemos a los alumnos vinculados
+                    as: 'integrantes',
                     attributes: ['id', 'nombre', 'email'],
-                    through: { attributes: [] } // Evita traer basura de la tabla intermedia
+                    through: { attributes: [] }
+                },
+                // --- NUEVA INCLUSIÓN DEL BACKLOG ---
+                {
+                    model: UserStory,
+                    as: 'userStories', // Alias definido en index.js
+                    include: [{
+                        model: Tarea,
+                        as: 'tareas', // Alias definido en index.js
+                        attributes: [
+                            'id', 'titulo', 'estado', 
+                            'cumpleAceptacion', 'testeado', 'documentado', 'utilizable', 
+                            'horasReales'
+                        ]
+                    }]
                 }
             ],
-            order: [['created_At', 'DESC']]
+            order: [
+                ['created_at', 'DESC'],
+                [{ model: UserStory, as: 'userStories' }, 'prioridad', 'ASC'] // Ordenar backlog por prioridad
+            ]
         };
 
-        // Lógica de visibilidad: Si no es admin (ver_todo), solo ve los suyos
         if (!usuarioFull.rol.ver_todo) {
             consultaOptions.where = { docente_owner_id: id };
         }
@@ -75,7 +90,7 @@ const obtenerProyectos = async (req, res) => {
 
     } catch (error) {
         console.error("Error al obtener proyectos:", error);
-        return res.status(500).json({ mensaje: "Error al obtener proyectos" });
+        return res.status(500).json({ mensaje: "Error al obtener proyectos", detalle: error.message });
     }
 };
 

@@ -6,6 +6,7 @@ const authRoutes = require('./src/routes/auth.routes');
 const usuarioRoutes = require('./src/routes/usuario.routes');
 const proyectoRoutes = require('./src/routes/proyecto.routes'); 
 const tareasRoutes = require('./src/routes/tarea.routes');
+const userStoryRoutes = require('./src/routes/userStory.routes');
 
 
 require('dotenv').config();
@@ -24,6 +25,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/proyectos', proyectoRoutes);
 app.use('/api/tareas', tareasRoutes);
+app.use('/api/user-stories', userStoryRoutes);
+
 
 app.get('/', (req, res) => {
   res.send('¡API Gestor de Proyectos funcionando! 🚀');
@@ -38,6 +41,7 @@ const startServer = async () => {
         // alter: true -> Si cambiaste algo en el modelo, intenta actualizar la tabla real.
         //await sequelize.sync({ alter: true });
         await sequelize.sync({ force: false, alter: false });
+        //await sequelize.sync({ alter: true }); // Cambiamos false por true
         console.log('✅ Modelos sincronizados con la BD.');
 
         app.listen(PORT, () => {

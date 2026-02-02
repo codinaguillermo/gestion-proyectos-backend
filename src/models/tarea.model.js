@@ -14,38 +14,59 @@ const Tarea = sequelize.define('Tarea', {
     descripcion: {
         type: DataTypes.TEXT
     },
-    // JERARQUÍA: Define si es una caja grande (EPIC) o una tuerca (TASK)
-    tipo: {
-        type: DataTypes.ENUM('EPIC', 'STORY', 'TASK', 'BUG'),
+    /* OJO: Comentamos estos porque ahora usamos tipo_id, prioridad_id y estado_id 
+       que vienen de las tablas maestras en la base de datos. 
+    */
+    // tipo: { ... }, 
+    // prioridad: { ... },
+    // estado: { ... },
+
+    fechaInicioReal: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'fecha_inicio_real'
+    },
+    fechaFinReal: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'fecha_fin_real'
+    },
+    horasReales: {
+        type: DataTypes.DECIMAL(10, 2),
+        defaultValue: 0,
+        field: 'horas_reales'
+    },
+    cumpleAceptacion: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'cumple_aceptacion'
+    },
+    testeado: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'testeado'
+    },
+    documentado: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'documentado'
+    },
+    utilizable: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'utilizable'
+    },
+    usId: {
+        type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 'TASK'
-    },
-    // ORDEN: Para saber qué agarrar primero
-    prioridad: {
-        type: DataTypes.ENUM('ALTA', 'MEDIA', 'BAJA'),
-        defaultValue: 'MEDIA'
-    },
-    // WORKFLOW: Tu tablero Kanban
-    estado: {
-        type: DataTypes.ENUM('BACKLOG', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'DONE'),
-        defaultValue: 'BACKLOG'
-    },
-    // AUDITORÍA: Datos que se llenarán automáticamente por lógica
-    fecha_inicio_real: {
-        type: DataTypes.DATE,
-        allowNull: true 
-    },
-    fecha_fin_real: {
-        type: DataTypes.DATE,
-        allowNull: true 
-    },
-    // CONTROL: El "peaje" obligatorio para mover tarjetas
-    horas_dedicadas: {
-        type: DataTypes.DECIMAL(10, 2), // Ejemplo: 2.50 horas
-        defaultValue: 0
+        field: 'us_id',
+        references: {
+            model: 'user_stories',
+            key: 'id'
+        }
     }
 }, {
-    paranoid: true, // Soft Delete (Papelera de reciclaje)
+    paranoid: true,
     underscored: true,
     tableName: 'tareas'
 });

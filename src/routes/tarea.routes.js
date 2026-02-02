@@ -20,4 +20,7 @@ router.get('/proyecto/:proyecto_id', tareaController.obtenerTareasProyecto);
 //router.get('/config/maestras', authMiddleware, tareaController.obtenerTablasMaestras);
 router.get('/config/maestras', verificarToken, tareaController.obtenerTablasMaestras);
 
+// Agregar esta línea junto a las otras rutas de tareas
+router.patch('/:id/log-horas', verificarToken, tareaController.registrarAvanceHoras);
+
 module.exports = router;
