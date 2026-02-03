@@ -4,10 +4,10 @@ const { DataTypes } = require('sequelize');
 const Usuario = require('./usuario.model');
 const Proyecto = require('./proyecto.model');
 const Tarea = require('./tarea.model');
-const Rol = require('./rol');
-const EstadoProyecto = require('./estadoProyecto');
+const Rol = require('./rol.model.js');
+const EstadoProyecto = require('./estadoProyecto.model.js');
 // 1. IMPORTAMOS EL NUEVO MODELO
-const UserStory = require('./userStory'); 
+const UserStory = require('./userStory.model.js'); 
 
 // --- NUEVOS MODELOS (Mesa de diseño) ---
 const Prioridad = require('./prioridad.model')(sequelize, DataTypes);

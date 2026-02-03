@@ -1,4 +1,9 @@
 const { Proyecto, Rol, Usuario, EstadoProyecto, UserStory, Tarea } = require('../models');
+// AGREGA ESTO TEMPORALMENTE:
+console.log('--- VERIFICANDO MODELOS ---');
+console.log('Proyecto:', !!Proyecto);
+console.log('UserStory:', !!UserStory);
+console.log('Tarea:', !!Tarea);
 
 // --- CREAR PROYECTO ---
 const crearProyecto = async (req, res) => {
