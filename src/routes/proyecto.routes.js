@@ -11,5 +11,6 @@ router.use(verificarToken);
 router.post('/', proyectoController.crearProyecto);
 router.get('/', proyectoController.obtenerProyectos);
 router.put('/:id', proyectoController.actualizarProyecto);
-router.delete('/:id', proyectoController.eliminarProyecto);
+
+router.delete('/:id', verificarToken, proyectoController.eliminarProyecto);
 module.exports = router;

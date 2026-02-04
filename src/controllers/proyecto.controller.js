@@ -44,64 +44,35 @@ const crearProyecto = async (req, res) => {
 const obtenerProyectos = async (req, res) => {
     try {
         const { id } = req.usuario;
+        console.log("🔎 Buscando proyectos en BD para usuario ID:", id);
 
-        const usuarioFull = await Usuario.findByPk(id, {
-            include: [{ model: Rol }]
-        });
-        
-        if (!usuarioFull || !usuarioFull.rol) {
-            return res.status(403).json({ mensaje: "Usuario sin rol asignado" });
-        }
-
-        let consultaOptions = {
-            distinct: true,
+        const proyectos = await Proyecto.findAll({
+            where: { 
+                docente_owner_id: id 
+            },
             include: [
                 { 
                     model: EstadoProyecto,
                     attributes: ['id', 'nombre'] 
                 },
-                {
-                    model: Usuario,
-                    as: 'integrantes',
-                    attributes: ['id', 'nombre', 'email'],
-                    through: { attributes: [] }
-                },
-                // --- NUEVA INCLUSIÓN DEL BACKLOG ---
+                // SOLO AGREGAMOS ESTO:
                 {
                     model: UserStory,
-                    as: 'userStories', // Alias definido en index.js
-                    include: [{
-                        model: Tarea,
-                        as: 'tareas', // Alias definido en index.js
-                        attributes: [
-                            'id', 
-                            'titulo', 
-                            'estado_id', // <--- Cambiamos 'estado' por 'estado_id'
-                            'cumpleAceptacion', 
-                            'testeado', 
-                            'documentado', 
-                            'utilizable', 
-                            'horasReales'
-                        ]
-                    }]
+                    as: 'userStories' 
                 }
             ],
-            order: [
-                ['created_at', 'DESC'],
-                [{ model: UserStory, as: 'userStories' }, 'prioridad', 'ASC'] // Ordenar backlog por prioridad
-            ]
-        };
+            order: [['created_at', 'DESC']] 
+        });
 
-        if (!usuarioFull.rol.ver_todo) {
-            consultaOptions.where = { docente_owner_id: id };
-        }
-
-        const proyectos = await Proyecto.findAll(consultaOptions);
+        console.log(`✅ Proyectos recuperados de la BD: ${proyectos.length}`);
         return res.json(proyectos);
 
     } catch (error) {
-        console.error("Error al obtener proyectos:", error);
-        return res.status(500).json({ mensaje: "Error al obtener proyectos", detalle: error.message });
+        console.error("❌ ERROR AL OBTENER PROYECTOS:", error);
+        return res.status(500).json({ 
+            mensaje: "Error al obtener proyectos", 
+            detalle: error.message 
+        });
     }
 };
 
@@ -146,28 +117,50 @@ const actualizarProyecto = async (req, res) => {
 };
 
 // --- ELIMINAR PROYECTO ---
+// src/controllers/proyecto.controller.js
+
+// src/controllers/proyecto.controller.js
+
 const eliminarProyecto = async (req, res) => {
     try {
         const { id } = req.params;
-        const proyecto = await Proyecto.findByPk(id);
-        
-        if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
 
-        const esDueño = proyecto.docente_owner_id === req.usuario.id;
-        const tienePermisoGlobal = req.usuario.rol && req.usuario.rol.ver_todo === true;
+        // Buscamos el proyecto usando el alias que Sequelize nos pide: 'userStories'
+        const proyecto = await Proyecto.findByPk(id, {
+            include: [{
+                model: UserStory,
+                as: 'userStories', // CAMBIADO: Antes decía 'user_stories'
+                include: [{ model: Tarea, as: 'tareas' }]
+            }]
+        });
 
-        if (!esDueño && !tienePermisoGlobal) {
-            return res.status(403).json({ mensaje: "No tienes permiso para eliminar este proyecto" });
+        if (!proyecto) {
+            return res.status(404).json({ mensaje: "Proyecto no encontrado" });
         }
 
-        await Proyecto.destroy({ where: { id } });
-        return res.json({ mensaje: "Proyecto eliminado correctamente" });
+        // CASCADA LÓGICA MANUAL
+        // Usamos proyecto.userStories (con S mayúscula) porque así lo trajo el include
+        if (proyecto.userStories && proyecto.userStories.length > 0) {
+            for (const us of proyecto.userStories) {
+                // 1. Borrado lógico de tareas de esta US
+                await Tarea.destroy({ where: { us_id: us.id } });
+                // 2. Borrado lógico de la US
+                await us.destroy();
+            }
+        }
+
+        // 3. Finalmente, borrado lógico del proyecto
+        await proyecto.destroy();
+
+        return res.json({ mensaje: "Proyecto y su contenido eliminados (lógicamente) con éxito" });
 
     } catch (error) {
-        console.error("Error al eliminar proyecto:", error);
-        return res.status(500).json({ mensaje: "Error al eliminar proyecto" });
+        console.error("Error en borrado lógico:", error);
+        return res.status(500).json({ mensaje: "Error al eliminar", detalle: error.message });
     }
 };
+
+// No olvides agregarlo al module.exports
 
 module.exports = {
     crearProyecto,

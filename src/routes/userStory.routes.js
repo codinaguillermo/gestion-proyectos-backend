@@ -7,5 +7,6 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 // Prefijo: /api/user-stories
 router.post('/', verificarToken, userStoryController.crearUserStory);
 router.get('/proyecto/:proyectoId', verificarToken, userStoryController.obtenerUserStoriesPorProyecto);
+router.delete('/:id', verificarToken, userStoryController.eliminarUserStory);
 
 module.exports = router;

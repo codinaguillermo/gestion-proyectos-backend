@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Usuario, Rol } = require('../models'); // Importamos los modelos
+const { Usuario } = require('../models'); // Quitamos Rol de aquí por ahora
 
 const verificarToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -12,22 +12,19 @@ const verificarToken = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // BUSQUEDA EN BD: Traemos al usuario con su ROL incluido
-        const usuarioFull = await Usuario.findByPk(decoded.id, {
-            include: [{ model: Rol, as: 'rol' }] 
-        });
+        // BUSQUEDA SIMPLE: Solo el usuario, sin el include que falla
+        const usuarioFull = await Usuario.findByPk(decoded.id);
 
         if (!usuarioFull) {
             return res.status(404).json({ mensaje: "Usuario no encontrado" });
         }
 
-        // Ahora req.usuario tiene TODO: id, email y el objeto ROL con sus permisos
         req.usuario = usuarioFull; 
-        
         next(); 
 
     } catch (error) {
-        return { error: 'Token inválido', mensaje: 'Tu sesión expiró' };
+        console.error("Error en Middleware:", error.message);
+        return res.status(401).json({ error: 'Token inválido', mensaje: 'Tu sesión expiró' });
     }
 };
 

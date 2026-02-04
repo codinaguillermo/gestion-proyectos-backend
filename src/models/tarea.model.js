@@ -28,7 +28,7 @@ const Tarea = sequelize.define('Tarea', {
     usId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        field: 'us_id', // Mapea usId en código a us_id en DB
+        field: 'us_id', 
         references: { model: 'user_stories', key: 'id' }
     },
     tipo_id: {
@@ -95,8 +95,10 @@ const Tarea = sequelize.define('Tarea', {
     }
 }, {
     tableName: 'tareas',
-    underscored: true, // Esto ayuda con created_at y updated_at
-    paranoid: true     // Para que el delete sea lógico (deleted_at)
+    underscored: true, 
+    timestamps: true,
+    paranoid: true,         // Habilita el borrado lógico
+    deletedAt: 'deleted_at' // Fuerza el mapeo con la columna de tu SQL
 });
 
 module.exports = Tarea;

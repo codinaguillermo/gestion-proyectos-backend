@@ -26,6 +26,7 @@ app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/proyectos', proyectoRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/api/user-stories', userStoryRoutes);
+app.use('/api/common', require('./src/routes/common.routes'));
 
 
 app.get('/', (req, res) => {
@@ -43,6 +44,7 @@ const startServer = async () => {
         await sequelize.sync({ force: false, alter: false });
         //await sequelize.sync({ alter: true }); // Cambiamos false por true
         console.log('✅ Modelos sincronizados con la BD.');
+        console.log(`¿US con Borrado Lógico?: ${UserStory.options.paranoid}`);
 
         app.listen(PORT, () => {
             console.log(`\n>>> Servidor corriendo en http://localhost:${PORT}`);

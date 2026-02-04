@@ -1,28 +1,27 @@
 const { Usuario } = require('../models');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt'); // 1. Importamos bcrypt
 
-// --- FUNCIÓN NUEVA: REGISTRO ---
+// --- REGISTRO ---
 const registro = async (req, res) => {
     try {
         const { nombre, email, password } = req.body;
 
-        // 1. Validar datos
         if (!nombre || !email || !password) {
             return res.status(400).json({ error: 'Faltan datos', mensaje: 'Nombre, email y password son obligatorios' });
         }
 
-        // 2. Verificar si ya existe el email
         const existeUsuario = await Usuario.findOne({ where: { email } });
         if (existeUsuario) {
             return res.status(400).json({ error: 'Email duplicado', mensaje: 'El email ya está registrado' });
         }
 
-        // 3. Crear el usuario en la BD
-        // IMPORTANTE: Mapeamos 'password' (del body) a 'password_hash' (de la BD)
+        // Al crear el usuario, el HOOK 'beforeCreate' que pusimos en el modelo 
+        // se encargará de encriptar 'password_hash' automáticamente.
         const nuevoUsuario = await Usuario.create({
             nombre,
             email,
-            password_hash: password, // Por ahora texto plano, luego encriptaremos
+            password_hash: password, 
             rol_id: 1
         });
 
@@ -36,12 +35,12 @@ const registro = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error en registro:", error);
         return res.status(500).json({ error: 'Error al registrar usuario' });
     }
 };
 
-// --- FUNCIÓN EXISTENTE: LOGIN ---
+// --- LOGIN ---
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -56,7 +55,10 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' }); 
         }
 
-        if (usuario.password_hash !== password) {
+        // 2. CAMBIO CLAVE: Comparamos la clave ingresada con el hash de la BD
+        const passwordValida = await bcrypt.compare(password, usuario.password_hash);
+        
+        if (!passwordValida) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
@@ -80,10 +82,9 @@ const login = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Error en login:", error);
         return res.status(500).json({ error: 'Error en el servidor' });
     }
 };
 
-// EXPORTAMOS LAS DOS FUNCIONES
 module.exports = { login, registro };
