@@ -6,7 +6,7 @@ const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProye
 const crearTarea = async (req, res) => {
     try {
         // Agregamos usId a la desestructuración
-        const { titulo, descripcion, tipo_id, prioridad_id, proyecto_id, responsable_id, padre_id, usId } = req.body;
+        const { titulo, descripcion, horas_estimadas, tipo_id, prioridad_id, proyecto_id, responsable_id, padre_id, usId } = req.body;
 
         // 1. Validaciones básicas (Ahora usId es obligatorio para el Backlog)
         if (!titulo || !proyecto_id || !usId) {
@@ -18,6 +18,7 @@ const crearTarea = async (req, res) => {
         const nuevaTarea = await Tarea.create({
             titulo,
             descripcion,
+            horas_estimadas,
             tipo_id,
             prioridad_id,
             proyecto_id,

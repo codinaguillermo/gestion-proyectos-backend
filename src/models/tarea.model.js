@@ -12,15 +12,56 @@ const Tarea = sequelize.define('Tarea', {
         allowNull: false
     },
     descripcion: {
-        type: DataTypes.TEXT
+        type: DataTypes.TEXT,
+        allowNull: true
     },
-    /* OJO: Comentamos estos porque ahora usamos tipo_id, prioridad_id y estado_id 
-       que vienen de las tablas maestras en la base de datos. 
-    */
-    // tipo: { ... }, 
-    // prioridad: { ... },
-    // estado: { ... },
-
+    horas_estimadas: { 
+        type: DataTypes.DECIMAL(12, 2),
+        defaultValue: 0.00
+    },
+    // --- LLAVES FORÁNEAS (Relaciones) ---
+    proyecto_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'proyectos', key: 'id' }
+    },
+    usId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'us_id', // Mapea usId en código a us_id en DB
+        references: { model: 'user_stories', key: 'id' }
+    },
+    tipo_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false,
+        references: { model: 'tipo_tareas', key: 'id' }
+    },
+    prioridad_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false,
+        references: { model: 'prioridades', key: 'id' }
+    },
+    estado_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false,
+        references: { model: 'estado_tareas', key: 'id' }
+    },
+    responsable_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'usuarios', key: 'id' }
+    },
+    padre_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: 'tareas', key: 'id' }
+    },
+    // --- CAMPOS DE SEGUIMIENTO ---
+    horasReales: {
+        type: DataTypes.DECIMAL(10, 2),
+        defaultValue: 0.00,
+        field: 'horas_reales'
+    },
     fechaInicioReal: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -31,11 +72,7 @@ const Tarea = sequelize.define('Tarea', {
         allowNull: true,
         field: 'fecha_fin_real'
     },
-    horasReales: {
-        type: DataTypes.DECIMAL(10, 2),
-        defaultValue: 0,
-        field: 'horas_reales'
-    },
+    // --- CHECKLIST DE CALIDAD ---
     cumpleAceptacion: {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
@@ -55,20 +92,11 @@ const Tarea = sequelize.define('Tarea', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
         field: 'utilizable'
-    },
-    usId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        field: 'us_id',
-        references: {
-            model: 'user_stories',
-            key: 'id'
-        }
     }
 }, {
-    paranoid: true,
-    underscored: true,
-    tableName: 'tareas'
+    tableName: 'tareas',
+    underscored: true, // Esto ayuda con created_at y updated_at
+    paranoid: true     // Para que el delete sea lógico (deleted_at)
 });
 
 module.exports = Tarea;

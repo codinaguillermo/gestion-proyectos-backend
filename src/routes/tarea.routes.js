@@ -13,7 +13,8 @@ router.put('/:id', tareaController.actualizarTarea);
 router.delete('/:id', tareaController.eliminarTarea);
 
 // 3. Rutas de utilidades
-router.get('/diccionarios', tareaController.obtenerTablasMaestras);
+//router.get('/diccionarios', tareaController.obtenerTablasMaestras);
+router.get('/config/maestras', tareaController.obtenerTablasMaestras);
 router.post('/:id/horas', tareaController.registrarAvanceHoras);
 
 module.exports = router;

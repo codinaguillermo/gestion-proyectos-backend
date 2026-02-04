@@ -1,4 +1,5 @@
-const { Proyecto, Rol, Usuario, EstadoProyecto, UserStory, Tarea } = require('../models');
+//const { Proyecto, Rol, Usuario, EstadoProyecto, UserStory, Tarea } = require('../models');
+const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory,Rol } = require('../models');
 // AGREGA ESTO TEMPORALMENTE:
 console.log('--- VERIFICANDO MODELOS ---');
 console.log('Proyecto:', !!Proyecto);
@@ -73,8 +74,13 @@ const obtenerProyectos = async (req, res) => {
                         model: Tarea,
                         as: 'tareas', // Alias definido en index.js
                         attributes: [
-                            'id', 'titulo', 'estado', 
-                            'cumpleAceptacion', 'testeado', 'documentado', 'utilizable', 
+                            'id', 
+                            'titulo', 
+                            'estado_id', // <--- Cambiamos 'estado' por 'estado_id'
+                            'cumpleAceptacion', 
+                            'testeado', 
+                            'documentado', 
+                            'utilizable', 
                             'horasReales'
                         ]
                     }]
