@@ -19,7 +19,11 @@ const UserStory = sequelize.define('UserStory', {
     },
     prioridad_id: { type: DataTypes.INTEGER },
     estado_id: { type: DataTypes.INTEGER },
-    proyecto_id: { type: DataTypes.INTEGER }
+    proyecto_id: { type: DataTypes.INTEGER },
+    condiciones: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    }
 }, {
     tableName: 'user_stories',
     underscored: true,

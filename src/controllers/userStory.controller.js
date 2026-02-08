@@ -14,6 +14,7 @@ const crearUserStory = async (req, res) => {
             proyecto_id,
             titulo,
             descripcion,
+            condiciones,
             prioridad_id,
             estado_id: estado_id || 1 // Pendiente por defecto
         });
@@ -26,28 +27,39 @@ const crearUserStory = async (req, res) => {
 };
 
 // --- OBTENER USER STORIES POR PROYECTO ---
+// src/controllers/userStory.controller.js
+
+// src/controllers/userStory.controller.js
+
 const obtenerUserStoriesPorProyecto = async (req, res) => {
     try {
         const { proyectoId } = req.params;
         
         const stories = await UserStory.findAll({
             where: { proyecto_id: proyectoId },
+            attributes: [
+                'id', 
+                'titulo', 
+                'descripcion', 
+                'condiciones', // <-- 1. ASEGURATE que en la DB se llame así
+                'prioridad_id', 
+                'estado_id', 
+                'proyecto_id'
+            ],
             include: [
                 { model: PrioridadUS, as: 'prioridad_detalle' },
                 { model: EstadoUS, as: 'estado_detalle' },
                 { model: Tarea, as: 'tareas' }
             ],
-            // CAMBIO CLAVE: Ordenamos por id o prioridad_id, no por 'prioridad' (que no existe)
             order: [['id', 'ASC']] 
         });
         
         return res.json(stories);
     } catch (error) {
-        console.error("Error al obtener User Stories:", error);
-        // Agregamos el detalle para que no sea un misterio si falla
-        return res.status(500).json({ mensaje: "Error al obtener User Stories", detalle: error.message });
+        return res.status(500).json({ mensaje: "Error", detalle: error.message });
     }
 };
+
 // --- ELIMINAR USER STORY ---
 const eliminarUserStory = async (req, res) => {
     try {
@@ -74,9 +86,37 @@ const eliminarUserStory = async (req, res) => {
     }
 };
 
+// --- ACTUALIZAR USER STORY ---
+const actualizarUserStory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { titulo, descripcion, condiciones, prioridad_id, estado_id } = req.body;
+
+        const us = await UserStory.findByPk(id);
+        if (!us) {
+            return res.status(404).json({ mensaje: "User Story no encontrada" });
+        }
+
+        // Actualizamos los campos, incluyendo las nuevas condiciones
+        await us.update({
+            titulo,
+            descripcion,
+            condiciones,
+            prioridad_id,
+            estado_id
+        });
+
+        return res.json({ mensaje: "User Story actualizada correctamente", us });
+    } catch (error) {
+        console.error("Error al actualizar US:", error);
+        return res.status(500).json({ mensaje: "Error al actualizar la US", detalle: error.message });
+    }
+};
+
 // ACTUALIZÁ TUS EXPORTS
 module.exports = {
     crearUserStory,
     obtenerUserStoriesPorProyecto,
-    eliminarUserStory // <--- AGREGADA
+    actualizarUserStory,
+    eliminarUserStory 
 };

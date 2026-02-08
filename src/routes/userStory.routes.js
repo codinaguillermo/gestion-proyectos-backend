@@ -8,5 +8,7 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 router.post('/', verificarToken, userStoryController.crearUserStory);
 router.get('/proyecto/:proyectoId', verificarToken, userStoryController.obtenerUserStoriesPorProyecto);
 router.delete('/:id', verificarToken, userStoryController.eliminarUserStory);
+// El método debe ser PUT o PATCH según como lo llame tu userStory.service.js
+router.put('/:id', verificarToken, userStoryController.actualizarUserStory);
 
 module.exports = router;

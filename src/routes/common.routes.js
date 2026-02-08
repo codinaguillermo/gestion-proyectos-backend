@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
-// Importamos la función del controlador
-const { getMaestrosUS } = require('../controllers/common.controller');
-// CORRECCIÓN CLAVE: Tu middleware exporta 'verificarToken', no 'authMiddleware'
+const { getPrioridadesUS, getEstadosUS } = require('../controllers/common.controller');
 const { verificarToken } = require('../middlewares/auth.middleware'); 
 
-// Definimos la ruta usando los nombres correctos
-router.get('/maestros-us', verificarToken, getMaestrosUS);
+// Ahora sí existen estas dos rutas por separado
+router.get('/prioridades-us', verificarToken, getPrioridadesUS);
+router.get('/estados-us', verificarToken, getEstadosUS);
 
 module.exports = router;

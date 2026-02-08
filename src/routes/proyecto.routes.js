@@ -7,7 +7,7 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 router.use(verificarToken);
 
 // 2. Definir las rutas usando las funciones del controlador
-// Si proyectoController.crearProyecto es undefined, aquí explota.
+router.get('/:id', verificarToken, proyectoController.obtenerProyectoPorId);
 router.post('/', proyectoController.crearProyecto);
 router.get('/', proyectoController.obtenerProyectos);
 router.put('/:id', proyectoController.actualizarProyecto);

@@ -1,33 +1,34 @@
+// 1. IMPORTACIONES DE MÓDULOS (Siempre primero)
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 
-//importar
+// 2. IMPORTACIÓN DE MODELOS (Desde el index)
+const { sequelize, UserStory, Proyecto, Tarea } = require('./src/models');
+
+// 3. IMPORTACIÓN DE RUTAS
 const authRoutes = require('./src/routes/auth.routes');
 const usuarioRoutes = require('./src/routes/usuario.routes');
 const proyectoRoutes = require('./src/routes/proyecto.routes'); 
 const tareasRoutes = require('./src/routes/tarea.routes');
 const userStoryRoutes = require('./src/routes/userStory.routes');
+const commonRoutes = require('./src/routes/common.routes');
 
-
-require('dotenv').config();
-
-// OJO: Ahora importamos desde models/index, no db.js directo
-const { sequelize } = require('./src/models'); 
-
-const app = express();
+// 4. INICIALIZACIÓN DE LA APP
+const app = express(); // <--- Ahora sí, express ya existe arriba
 const PORT = process.env.PORT || 3000;
 
+// 5. MIDDLEWARES
 app.use(cors());
 app.use(express.json());
 
-// Rutas
+// 6. RUTAS
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/proyectos', proyectoRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/api/user-stories', userStoryRoutes);
-app.use('/api/common', require('./src/routes/common.routes'));
-
+app.use('/api/common', commonRoutes);
 
 app.get('/', (req, res) => {
   res.send('¡API Gestor de Proyectos funcionando! 🚀');

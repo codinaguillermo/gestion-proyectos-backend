@@ -6,6 +6,27 @@ console.log('Proyecto:', !!Proyecto);
 console.log('UserStory:', !!UserStory);
 console.log('Tarea:', !!Tarea);
 
+
+// --- OBTENER UN PROYECTO POR ID ---
+const obtenerProyectoPorId = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const proyecto = await Proyecto.findByPk(id, {
+            attributes: ['id', 'nombre', 'descripcion'], // Solo lo que necesitamos
+            include: [{ model: EstadoProyecto, attributes: ['nombre'] }]
+        });
+
+        if (!proyecto) {
+            return res.status(404).json({ mensaje: "Proyecto no encontrado" });
+        }
+
+        return res.json(proyecto);
+    } catch (error) {
+        console.error("Error al obtener proyecto por ID:", error);
+        return res.status(500).json({ mensaje: "Error del servidor" });
+    }
+};
+
 // --- CREAR PROYECTO ---
 const crearProyecto = async (req, res) => {
     try {
@@ -59,6 +80,12 @@ const obtenerProyectos = async (req, res) => {
                 {
                     model: UserStory,
                     as: 'userStories' 
+                },
+                {
+                    model: Usuario,
+                    as: 'integrantes', // El alias que usás en actualizarProyecto
+                    attributes: ['id', 'nombre', 'email'],
+                    include: [{ model: Rol, attributes: ['nombre'] }]
                 }
             ],
             order: [['created_at', 'DESC']] 
@@ -163,6 +190,7 @@ const eliminarProyecto = async (req, res) => {
 // No olvides agregarlo al module.exports
 
 module.exports = {
+    obtenerProyectoPorId,
     crearProyecto,
     obtenerProyectos,
     actualizarProyecto,

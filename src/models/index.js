@@ -34,6 +34,11 @@ Usuario.belongsToMany(Proyecto, {
   foreignKey: 'usuario_id' 
 });
 
+// --- RELACIONES USUARIO Y ROL ---
+Usuario.belongsTo(Rol, { foreignKey: 'rol_id' });
+Rol.hasMany(Usuario, { foreignKey: 'rol_id' });
+
+
 Proyecto.belongsTo(EstadoProyecto, { foreignKey: 'estado_id' });
 EstadoProyecto.hasMany(Proyecto, { foreignKey: 'estado_id' });
 

@@ -66,11 +66,11 @@ const listarUsuarios = async (req, res) => {
         let filtro = {};
 
         // Si viene un parámetro de búsqueda, filtramos por nombre o email
-        if (q) {
+       if (q) {
             filtro = {
                 [Op.or]: [
-                    { nombre: { [Op.like]: `%${q}%` } },
-                    { email: { [Op.like]: `%${q}%` } }
+                    { nombre: { [Op.substring]: q } }, // Busca en cualquier parte de la cadena
+                    { email: { [Op.substring]: q } }
                 ]
             };
         }

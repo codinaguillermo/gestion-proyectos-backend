@@ -1,18 +1,26 @@
 const { PrioridadUS, EstadoUS } = require('../models');
 
-const getMaestrosUS = async (req, res) => {
+// Función para Prioridades
+const getPrioridadesUS = async (req, res) => {
     try {
-        const [prioridades, estados] = await Promise.all([
-            PrioridadUS.findAll({ order: [['peso', 'ASC']] }),
-            EstadoUS.findAll()
-        ]);
-        res.json({ prioridades, estados });
+        const prioridades = await PrioridadUS.findAll({ order: [['id', 'ASC']] });
+        res.json(prioridades); // Enviamos el array directo
     } catch (error) {
-        res.status(500).json({ mensaje: "Error" });
+        res.status(500).json({ mensaje: "Error cargando prioridades" });
     }
 };
 
-// IMPORTANTE: El nombre aquí debe coincidir con el que usás en la ruta
+// Función para Estados
+const getEstadosUS = async (req, res) => {
+    try {
+        const estados = await EstadoUS.findAll();
+        res.json(estados); // Enviamos el array directo
+    } catch (error) {
+        res.status(500).json({ mensaje: "Error cargando estados" });
+    }
+};
+
 module.exports = { 
-    getMaestrosUS 
+    getPrioridadesUS,
+    getEstadosUS
 };
