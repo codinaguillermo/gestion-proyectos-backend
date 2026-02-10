@@ -1,5 +1,7 @@
-//const { Proyecto, Rol, Usuario, EstadoProyecto, UserStory, Tarea } = require('../models');
-const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory,Rol } = require('../models');
+
+const { Op } = require('sequelize'); 
+const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol } = require('../models');
+
 // AGREGA ESTO TEMPORALMENTE:
 console.log('--- VERIFICANDO MODELOS ---');
 console.log('Proyecto:', !!Proyecto);
@@ -11,9 +13,20 @@ console.log('Tarea:', !!Tarea);
 const obtenerProyectoPorId = async (req, res) => {
     try {
         const { id } = req.params;
+        // Buscamos el proyecto pero SIN filtrar los integrantes por el usuario actual
         const proyecto = await Proyecto.findByPk(id, {
-            attributes: ['id', 'nombre', 'descripcion'], // Solo lo que necesitamos
-            include: [{ model: EstadoProyecto, attributes: ['nombre'] }]
+            attributes: ['id', 'nombre', 'descripcion', 'docente_owner_id'],
+            include: [
+                { model: EstadoProyecto, attributes: ['nombre'] },
+                { 
+                    model: Usuario, 
+                    as: 'integrantes', 
+                    attributes: ['id', 'nombre', 'email'],
+                    // Agregamos el include del Rol para que no aparezcan todos como "Alumno" por defecto
+                    include: [{ model: Rol, attributes: ['nombre'] }],
+                    through: { attributes: [] } 
+                }
+            ]
         });
 
         if (!proyecto) {
@@ -27,19 +40,21 @@ const obtenerProyectoPorId = async (req, res) => {
     }
 };
 
+
 // --- CREAR PROYECTO ---
 const crearProyecto = async (req, res) => {
     try {
         const { nombre, descripcion } = req.body;
         const usuarioId = req.usuario.id;
 
-        // Buscamos el primer estado disponible (generalmente "NUEVO" o "PLANIFICACIÓN")
+        // 1. Buscamos el estado inicial
         const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
         
         if (!estadoInicial) {
             return res.status(500).json({ mensaje: "Falta configurar estados de proyecto en la DB" });
         }
 
+        // 2. Creamos el proyecto asignando al creador como Owner
         const nuevoProyecto = await Proyecto.create({
             nombre,
             descripcion,
@@ -47,9 +62,21 @@ const crearProyecto = async (req, res) => {
             docente_owner_id: usuarioId
         });
 
-        // Retornamos con el include para que Vue vea el nombre del estado al instante
+        // 3. ¡PASO CLAVE!: Auto-asignarse como integrante
+        // Usamos el método que Sequelize genera automáticamente por el alias 'integrantes'
+        await nuevoProyecto.addIntegrante(usuarioId); 
+
+        // 4. Retornamos con los datos completos para que el frontend se actualice
         const proyectoConRelacion = await Proyecto.findByPk(nuevoProyecto.id, {
-            include: [{ model: EstadoProyecto, attributes: ['nombre'] }]
+            include: [
+                { model: EstadoProyecto, attributes: ['nombre'] },
+                { 
+                    model: Usuario, 
+                    as: 'integrantes', 
+                    attributes: ['id', 'nombre', 'email'],
+                    through: { attributes: [] }
+                }
+            ]
         });
 
         return res.status(201).json(proyectoConRelacion);
@@ -64,42 +91,62 @@ const crearProyecto = async (req, res) => {
 // --- OBTENER PROYECTOS (Versión con Backlog) ---
 const obtenerProyectos = async (req, res) => {
     try {
-        const { id } = req.usuario;
-        console.log("🔎 Buscando proyectos en BD para usuario ID:", id);
+        const { id, rol_id } = req.usuario;
+        let condicion = {};
 
+        // Si no es Admin, filtramos por participación o autoría
+        if (rol_id !== 1) {
+            const participaciones = await Proyecto.findAll({
+                attributes: ['id'],
+                include: [{
+                    model: Usuario,
+                    as: 'integrantes',
+                    where: { id: id },
+                    attributes: [],
+                    through: { attributes: [] }
+                }],
+                raw: true
+            });
+
+            const ids = participaciones.map(p => p.id);
+
+            condicion = {
+                [Op.or]: [
+                    { docente_owner_id: id },
+                    { id: { [Op.in]: ids } }
+                ]
+            };
+        }
+
+        // TRAER PROYECTOS: Forzamos que 'docente_owner_id' esté presente
         const proyectos = await Proyecto.findAll({
-            where: { 
-                docente_owner_id: id 
-            },
+            where: condicion,
+            attributes: [
+                'id', 
+                'nombre', 
+                'descripcion', 
+                'estado_id', 
+                'docente_owner_id', // <--- FUNDAMENTAL
+                'created_at'
+            ],
             include: [
-                { 
-                    model: EstadoProyecto,
-                    attributes: ['id', 'nombre'] 
-                },
-                // SOLO AGREGAMOS ESTO:
-                {
-                    model: UserStory,
-                    as: 'userStories' 
-                },
+                { model: EstadoProyecto, attributes: ['id', 'nombre'] },
+                { model: UserStory, as: 'userStories' },
                 {
                     model: Usuario,
-                    as: 'integrantes', // El alias que usás en actualizarProyecto
+                    as: 'integrantes',
                     attributes: ['id', 'nombre', 'email'],
-                    include: [{ model: Rol, attributes: ['nombre'] }]
+                    include: [{ model: Rol, attributes: ['nombre'] }],
+                    through: { attributes: [] }
                 }
             ],
-            order: [['created_at', 'DESC']] 
+            order: [['created_at', 'DESC']]
         });
 
-        console.log(`✅ Proyectos recuperados de la BD: ${proyectos.length}`);
         return res.json(proyectos);
-
     } catch (error) {
-        console.error("❌ ERROR AL OBTENER PROYECTOS:", error);
-        return res.status(500).json({ 
-            mensaje: "Error al obtener proyectos", 
-            detalle: error.message 
-        });
+        console.error("Error en obtenerProyectos:", error);
+        return res.status(500).json({ mensaje: "Error", detalle: error.message });
     }
 };
 

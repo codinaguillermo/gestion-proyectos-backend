@@ -1,6 +1,6 @@
 const { Usuario } = require('../models');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt'); // 1. Importamos bcrypt
+const bcrypt = require('bcrypt');
 
 // --- REGISTRO ---
 const registro = async (req, res) => {
@@ -16,13 +16,11 @@ const registro = async (req, res) => {
             return res.status(400).json({ error: 'Email duplicado', mensaje: 'El email ya está registrado' });
         }
 
-        // Al crear el usuario, el HOOK 'beforeCreate' que pusimos en el modelo 
-        // se encargará de encriptar 'password_hash' automáticamente.
         const nuevoUsuario = await Usuario.create({
             nombre,
             email,
             password_hash: password, 
-            rol_id: 1
+            rol_id: 1 // Por defecto Admin
         });
 
         return res.status(201).json({
@@ -30,7 +28,8 @@ const registro = async (req, res) => {
             usuario: {
                 id: nuevoUsuario.id,
                 nombre: nuevoUsuario.nombre,
-                email: nuevoUsuario.email
+                email: nuevoUsuario.email,
+                rol_id: nuevoUsuario.rol_id // <--- CORRECCIÓN AQUÍ
             }
         });
 
@@ -55,7 +54,6 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' }); 
         }
 
-        // 2. CAMBIO CLAVE: Comparamos la clave ingresada con el hash de la BD
         const passwordValida = await bcrypt.compare(password, usuario.password_hash);
         
         if (!passwordValida) {
@@ -77,7 +75,8 @@ const login = async (req, res) => {
             token: token,
             usuario: {
                 id: usuario.id,
-                nombre: usuario.nombre
+                nombre: usuario.nombre,
+                rol_id: usuario.rol_id // <--- CORRECCIÓN AQUÍ
             }
         });
 
