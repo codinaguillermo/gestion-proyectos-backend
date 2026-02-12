@@ -4,9 +4,12 @@ const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProye
 
 // --- CREAR TAREA ---
 const crearTarea = async (req, res) => {
-    try {
-        // Agregamos usId a la desestructuración
-        const { titulo, descripcion, horas_estimadas, tipo_id, prioridad_id, proyecto_id, responsable_id, padre_id, usId } = req.body;
+    try {        
+        const { 
+            titulo, descripcion, horas_estimadas, tipo_id, prioridad_id, proyecto_id, responsable_id, padre_id, usId,
+            estado_id, cumpleAceptacion, testeado, documentado, utilizable, horasReales,
+            criterios_aceptacion, comentario_cierre, link_evidencia 
+        } = req.body;
 
         // 1. Validaciones básicas (Ahora usId es obligatorio para el Backlog)
         if (!titulo || !proyecto_id || !usId) {
@@ -15,17 +18,26 @@ const crearTarea = async (req, res) => {
 
         const estadoInicial = await EstadoTarea.findOne({ where: { nombre: 'BACKLOG' } });
 
+        // 2. Mapeo explícito para que Sequelize no se queje
         const nuevaTarea = await Tarea.create({
             titulo,
             descripcion,
-            horas_estimadas,
+            horas_estimadas: horas_estimadas || 0,             
             tipo_id,
             prioridad_id,
             proyecto_id,
             responsable_id,
             padre_id,
-            usId, // Asignamos la User Story padre
-            estado_id: estadoInicial ? estadoInicial.id : 1
+            usId,
+            estado_id: estado_id || (estadoInicial ? estadoInicial.id : 1),
+            horasReales: horasReales || 0,
+            cumpleAceptacion: cumpleAceptacion || false,
+            testeado: testeado || false,
+            documentado: documentado || false,
+            utilizable: utilizable || false,
+            criteriosAceptacion: criterios_aceptacion,
+            comentarioCierre: comentario_cierre,
+            linkEvidencia: link_evidencia
         });
 
         return res.status(201).json({
@@ -42,22 +54,53 @@ const crearTarea = async (req, res) => {
 const actualizarTarea = async (req, res) => {
     try {
         const { id } = req.params;
-        // Agregamos los 4 candados de calidad y horasReales
+        const usuarioLogueado = req.usuario; 
         const { 
             titulo, descripcion, estado_id, prioridad_id, responsable_id, tipo_id,
-            cumpleAceptacion, testeado, documentado, utilizable, horasReales 
+            horas_estimadas, // <--- ¡ESTA LÍNEA FALTA EN TU CÓDIGO!
+            cumpleAceptacion, testeado, documentado, utilizable, horasReales,
+            criterios_aceptacion, comentario_cierre, link_evidencia 
         } = req.body;
 
-        const tarea = await Tarea.findByPk(id);
-        if (!tarea) {
-            return res.status(404).json({ mensaje: "Tarea no encontrada" });
+        const tarea = await Tarea.findByPk(id, {
+            include: [{ model: Proyecto }] 
+        });
+
+        if (!tarea) return res.status(404).json({ mensaje: "Tarea no encontrada" });
+
+        // --- VALIDACIÓN DE PERMISOS CORREGIDA ---
+        const esAdmin = usuarioLogueado.rol_id === 1;
+        const esDocente = usuarioLogueado.rol_id === 2; // <--- Maria Alejandra tiene Rol 2
+        const esResponsable = tarea.responsable_id === usuarioLogueado.id;
+
+        // Si es Admin o Docente, tiene pase libre total
+        if (!esAdmin && !esDocente) {
+            // Si es un alumno (no es admin ni docente) y no es el responsable: BLOQUEO
+            if (!esResponsable) {
+                return res.status(403).json({ 
+                    mensaje: "Acceso denegado", 
+                    detalle: "No puedes modificar tareas asignadas a otros compañeros." 
+                });
+            }
+
+            // Si es el responsable (alumno), pero intenta reasignar: BLOQUEO
+            if (responsable_id && responsable_id !== tarea.responsable_id) {
+                return res.status(403).json({ 
+                    mensaje: "Acceso denegado", 
+                    detalle: "No tienes permiso para reasignar esta tarea a otra persona." 
+                });
+            }
         }
 
-        // Actualizamos incluyendo los nuevos campos de calidad
+        // --- ACTUALIZACIÓN ---
         await Tarea.update(
             { 
                 titulo, descripcion, estado_id, prioridad_id, responsable_id, tipo_id,
-                cumpleAceptacion, testeado, documentado, utilizable, horasReales
+                horas_estimadas, // <--- Y AGREGALA ACÁ TAMBIÉN
+                cumpleAceptacion, testeado, documentado, utilizable, horasReales,
+                criteriosAceptacion: criterios_aceptacion,
+                comentarioCierre: comentario_cierre,
+                linkEvidencia: link_evidencia
             },
             { where: { id } }
         );
@@ -66,20 +109,18 @@ const actualizarTarea = async (req, res) => {
             include: [
                 { model: Prioridad, as: 'prioridad_detalle' },
                 { model: EstadoTarea, as: 'estado_detalle' },
-                { model: UserStory, as: 'userStory' } // Opcional: para ver a qué US pertenece
+                { model: UserStory, as: 'userStory' }
             ]
         });
         
-        return res.json({
-            mensaje: "Tarea actualizada",
-            tarea: tareaActualizada
-        });
+        return res.json({ mensaje: "Tarea actualizada correctamente", tarea: tareaActualizada });
 
     } catch (error) {
         console.error("Error al actualizar tarea:", error);
         return res.status(500).json({ mensaje: "Error al actualizar tarea" });
     }
 };
+
 // --- OBTENER TAREAS DE UN PROYECTO ---
 const obtenerTareasProyecto = async (req, res) => {
     try {
@@ -121,12 +162,29 @@ const obtenerTareasProyecto = async (req, res) => {
 const eliminarTarea = async (req, res) => {
     try {
         const { id } = req.params;
+        const usuarioLogueado = req.usuario; // Extraemos el usuario del middleware
 
         const tarea = await Tarea.findByPk(id);
         if (!tarea) {
             return res.status(404).json({ mensaje: "Tarea no encontrada" });
         }
 
+        // --- VALIDACIÓN DE PERMISOS ---
+        const esAdmin = usuarioLogueado.rol_id === 1;
+        const esDocente = usuarioLogueado.rol_id === 2;
+        const esResponsable = tarea.responsable_id === usuarioLogueado.id;
+
+        // Si no es Admin ni Docente, chequeamos si es su propia tarea
+        if (!esAdmin && !esDocente) {
+            if (!esResponsable) {
+                return res.status(403).json({ 
+                    mensaje: "Acceso denegado", 
+                    detalle: "No tienes permiso para eliminar tareas de otros compañeros." 
+                });
+            }
+        }
+
+        // Si pasó los filtros, procedemos
         await Tarea.destroy({ where: { id } });
 
         return res.json({ mensaje: "Tarea eliminada correctamente" });

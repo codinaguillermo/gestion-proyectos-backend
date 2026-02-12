@@ -92,6 +92,21 @@ const Tarea = sequelize.define('Tarea', {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
         field: 'utilizable'
+    },
+    criteriosAceptacion: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'criterios_aceptacion'
+    },
+    comentarioCierre: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'comentario_cierre'
+    },
+    linkEvidencia: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'link_evidencia'
     }
 }, {
     tableName: 'tareas',
