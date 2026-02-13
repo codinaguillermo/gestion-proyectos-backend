@@ -279,11 +279,34 @@ const registrarAvanceHoras = async (req, res) => {
     }
 };
 
+/**
+ * Obtiene todas las tareas de la base de datos.
+ * Esta función alimenta el cálculo de carga global de los integrantes en el Dashboard.
+ * Retorna: Un array con todas las tareas, incluyendo sus detalles de prioridad y estado.
+ */
+const obtenerTodasLasTareas = async (req, res) => {
+    try {
+        const tareas = await Tarea.findAll({
+            include: [
+                { model: Prioridad, as: 'prioridad_detalle' },
+                { model: EstadoTarea, as: 'estado_detalle' },
+                { model: Usuario, as: 'responsable', attributes: ['id', 'nombre'] }
+            ]
+        });
+        return res.json(tareas);
+    } catch (error) {
+        console.error("Error al obtener todas las tareas:", error);
+        return res.status(500).json({ mensaje: "Error al obtener el listado global de tareas" });
+    }
+};
+
+
 module.exports = {
     crearTarea,
     obtenerTareasProyecto,
     actualizarTarea, 
     eliminarTarea,
     obtenerTablasMaestras,
+    obtenerTodasLasTareas,
     registrarAvanceHoras
 };
