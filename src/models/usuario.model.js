@@ -9,6 +9,9 @@ const Usuario = sequelize.define('usuario', {
   password_hash: { type: DataTypes.STRING, allowNull: false },
   rol_id: { type: DataTypes.INTEGER, allowNull: false },
   
+  // Nuevo campo para la foto de perfil
+  avatar: { type: DataTypes.STRING, allowNull: true }, 
+
   curso: { type: DataTypes.STRING },
   division: { type: DataTypes.STRING },
   telefono: { type: DataTypes.STRING },
@@ -30,7 +33,6 @@ const Usuario = sequelize.define('usuario', {
       }
     },
     beforeUpdate: async (usuario) => {
-      // Sequelize detecta si el campo cambió antes de hashear
       if (usuario.changed('password_hash')) {
         const salt = await bcrypt.genSalt(10);
         usuario.password_hash = await bcrypt.hash(usuario.password_hash, salt);

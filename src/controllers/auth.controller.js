@@ -2,7 +2,10 @@ const { Usuario } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-// --- REGISTRO ---
+/**
+ * Propósito: Registrar un nuevo usuario.
+ * Nota: Se agrega el campo avatar al objeto de respuesta por consistencia.
+ */
 const registro = async (req, res) => {
     try {
         const { nombre, email, password } = req.body;
@@ -29,7 +32,8 @@ const registro = async (req, res) => {
                 id: nuevoUsuario.id,
                 nombre: nuevoUsuario.nombre,
                 email: nuevoUsuario.email,
-                rol_id: nuevoUsuario.rol_id // <--- CORRECCIÓN AQUÍ
+                rol_id: nuevoUsuario.rol_id,
+                avatar: nuevoUsuario.avatar // <--- Ahora se envía (aunque sea null al inicio)
             }
         });
 
@@ -39,7 +43,10 @@ const registro = async (req, res) => {
     }
 };
 
-// --- LOGIN ---
+/**
+ * Propósito: Autenticar usuario y generar token JWT.
+ * CORRECCIÓN: Se agrega 'avatar' al objeto 'usuario' enviado al frontend.
+ */
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -76,7 +83,8 @@ const login = async (req, res) => {
             usuario: {
                 id: usuario.id,
                 nombre: usuario.nombre,
-                rol_id: usuario.rol_id // <--- CORRECCIÓN AQUÍ
+                rol_id: usuario.rol_id,
+                avatar: usuario.avatar // <--- ¡LA PIEZA FALTANTE!
             }
         });
 
