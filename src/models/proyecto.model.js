@@ -2,15 +2,13 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 const Proyecto = sequelize.define('proyecto', {
-  // id no hace falta ponerlo, Sequelize lo asume
   nombre: { 
     type: DataTypes.STRING, 
     allowNull: false 
   },
   descripcion: { 
     type: DataTypes.TEXT 
-  },  
-  // Usamos el nombre exacto de tu SQL: 'estado_id'
+  },   
   estado_id: { 
     type: DataTypes.INTEGER,
     references: {
@@ -20,11 +18,20 @@ const Proyecto = sequelize.define('proyecto', {
   },
   docente_owner_id: { 
     type: DataTypes.INTEGER 
+  },
+  // NUEVO CAMPO: Para vincular el proyecto a una escuela específica
+  escuela_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Lo dejamos opcional por si hay proyectos globales, pero Alejandra lo usará siempre
+    references: {
+      model: 'escuelas',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'proyectos',
   timestamps: true,
-  paranoid: true, // Coincide con tu deleted_at del SQL
+  paranoid: true, 
   underscored: true, 
   createdAt: 'created_at',
   updatedAt: 'updated_at',

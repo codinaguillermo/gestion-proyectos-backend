@@ -57,7 +57,7 @@ const actualizarTarea = async (req, res) => {
         const usuarioLogueado = req.usuario; 
         const { 
             titulo, descripcion, estado_id, prioridad_id, responsable_id, tipo_id,
-            horas_estimadas, // <--- ¡ESTA LÍNEA FALTA EN TU CÓDIGO!
+            horas_estimadas,
             cumpleAceptacion, testeado, documentado, utilizable, horasReales,
             criterios_aceptacion, comentario_cierre, link_evidencia 
         } = req.body;
@@ -68,14 +68,24 @@ const actualizarTarea = async (req, res) => {
 
         if (!tarea) return res.status(404).json({ mensaje: "Tarea no encontrada" });
 
-        // --- VALIDACIÓN DE PERMISOS CORREGIDA ---
+        // --- NUEVAS REGLAS DE NEGOCIO (ESTADOS Y TIEMPOS) ---
+        const estadoAnterior = Number(tarea.estado_id);
+        const estadoNuevo = Number(estado_id);
+        
+        // REGLA: No se puede pasar de TO DO (1) a DONE (4) directamente
+        if (estadoAnterior === 1 && estadoNuevo === 4) {
+            return res.status(400).json({ 
+                mensaje: "Flujo inválido", 
+                detalle: "No puedes pasar de To Do a Done directamente. La tarea debe ser procesada primero." 
+            });
+        }
+
+        // --- VALIDACIÓN DE PERMISOS ---
         const esAdmin = usuarioLogueado.rol_id === 1;
-        const esDocente = usuarioLogueado.rol_id === 2; // <--- Maria Alejandra tiene Rol 2
+        const esDocente = usuarioLogueado.rol_id === 2; 
         const esResponsable = tarea.responsable_id === usuarioLogueado.id;
 
-        // Si es Admin o Docente, tiene pase libre total
         if (!esAdmin && !esDocente) {
-            // Si es un alumno (no es admin ni docente) y no es el responsable: BLOQUEO
             if (!esResponsable) {
                 return res.status(403).json({ 
                     mensaje: "Acceso denegado", 
@@ -83,7 +93,6 @@ const actualizarTarea = async (req, res) => {
                 });
             }
 
-            // Si es el responsable (alumno), pero intenta reasignar: BLOQUEO
             if (responsable_id && responsable_id !== tarea.responsable_id) {
                 return res.status(403).json({ 
                     mensaje: "Acceso denegado", 
@@ -92,12 +101,29 @@ const actualizarTarea = async (req, res) => {
             }
         }
 
+        // --- DETERMINAR HORAS REALES A GUARDAR ---
+        // Si el estado anterior era DONE (4) o el nuevo es TO DO (1), 
+        // ignoramos el envío de horasReales y dejamos lo que ya estaba.
+        let horasFinales = horasReales;
+        if (estadoAnterior === 4 || estadoNuevo === 1) {
+            horasFinales = tarea.horasReales;
+        }
+
         // --- ACTUALIZACIÓN ---
         await Tarea.update(
             { 
-                titulo, descripcion, estado_id, prioridad_id, responsable_id, tipo_id,
-                horas_estimadas, // <--- Y AGREGALA ACÁ TAMBIÉN
-                cumpleAceptacion, testeado, documentado, utilizable, horasReales,
+                titulo, 
+                descripcion, 
+                estado_id, 
+                prioridad_id, 
+                responsable_id, 
+                tipo_id,
+                horas_estimadas, 
+                cumpleAceptacion, 
+                testeado, 
+                documentado, 
+                utilizable, 
+                horasReales: horasFinales, // Usamos la variable controlada
                 criteriosAceptacion: criterios_aceptacion,
                 comentarioCierre: comentario_cierre,
                 linkEvidencia: link_evidencia

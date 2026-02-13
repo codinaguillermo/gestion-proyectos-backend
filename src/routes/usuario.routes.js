@@ -1,21 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const usuarioController = require('../controllers/usuario.controller');
-
-// --- CORRECCIÓN AQUÍ ---
-// 1. Usamos llaves { } para extraer la función
-// 2. Usamos el nombre correcto 'verificarToken'
 const { verificarToken } = require('../middlewares/auth.middleware');
 
-// Ruta Pública (Crear usuario)
+// 1. Crear usuario (Admin/Docente o Público según tu necesidad)
 router.post('/', usuarioController.crearUsuario);
 
-// PUT /api/usuarios/perfil
-router.put('/perfil', verificarToken, usuarioController.actualizarUsuario);
-
-// --- RUTA NUEVA ---
-// GET /api/usuarios (Protegida)
-// 3. Pasamos la función 'verificarToken', no el objeto
+// 2. Listar usuarios (Con filtros de búsqueda)
 router.get('/', verificarToken, usuarioController.listarUsuarios);
+
+// 3. Actualizar usuario (Ruta unificada con ID)
+// Esta ruta sirve tanto para "Mi Perfil" como para "Editar Alumno"
+router.put('/:id', verificarToken, usuarioController.actualizarUsuario);
+
+router.get('/:id', usuarioController.obtenerUsuarioPorId);
 
 module.exports = router;

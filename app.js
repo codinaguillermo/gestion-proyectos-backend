@@ -13,6 +13,8 @@ const proyectoRoutes = require('./src/routes/proyecto.routes');
 const tareasRoutes = require('./src/routes/tarea.routes');
 const userStoryRoutes = require('./src/routes/userStory.routes');
 const commonRoutes = require('./src/routes/common.routes');
+const escuelaRoutes = require('./src/routes/escuela.routes');
+
 
 // 4. INICIALIZACIÓN DE LA APP
 const app = express(); // <--- Ahora sí, express ya existe arriba
@@ -29,6 +31,7 @@ app.use('/api/proyectos', proyectoRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/api/user-stories', userStoryRoutes);
 app.use('/api/common', commonRoutes);
+app.use('/api/escuelas', escuelaRoutes);
 
 app.get('/', (req, res) => {
   res.send('¡API Gestor de Proyectos funcionando! 🚀');

@@ -8,15 +8,32 @@ const Tarea = require('./tarea.model');
 const Rol = require('./rol.model.js');
 const EstadoProyecto = require('./estadoProyecto.model.js');
 const UserStory = require('./userStory.model.js'); 
+const Escuela = require('./escuela.model'); // <--- NUEVO
 
-// Importación de tablas maestras (Asegúrate de que los archivos existan)
+// Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
 const EstadoUS = require('./estadoUS.model.js');
 const Prioridad = require('./prioridad.model')(sequelize, DataTypes);
 const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
 
-// --- RELACIONES USER STORY (Prioridad y Estado) ---
+// --- NUEVA RELACIÓN: USUARIOS Y ESCUELAS (N:M) ---
+Usuario.belongsToMany(Escuela, { 
+  through: 'usuario_escuelas', 
+  as: 'escuelas', 
+  foreignKey: 'usuario_id',
+  otherKey: 'escuela_id',
+  timestamps: false
+});
+Escuela.belongsToMany(Usuario, { 
+  through: 'usuario_escuelas', 
+  as: 'usuarios', 
+  foreignKey: 'escuela_id',
+  otherKey: 'usuario_id',
+  timestamps: false
+});
+
+// --- RELACIONES USER STORY ---
 UserStory.belongsTo(PrioridadUS, { foreignKey: 'prioridad_id', as: 'prioridad_detalle' });
 UserStory.belongsTo(EstadoUS, { foreignKey: 'estado_id', as: 'estado_detalle' });
 PrioridadUS.hasMany(UserStory, { foreignKey: 'prioridad_id' });
@@ -37,7 +54,6 @@ Usuario.belongsToMany(Proyecto, {
 // --- RELACIONES USUARIO Y ROL ---
 Usuario.belongsTo(Rol, { foreignKey: 'rol_id' });
 Rol.hasMany(Usuario, { foreignKey: 'rol_id' });
-
 
 Proyecto.belongsTo(EstadoProyecto, { foreignKey: 'estado_id' });
 EstadoProyecto.hasMany(Proyecto, { foreignKey: 'estado_id' });
@@ -62,6 +78,11 @@ Tarea.belongsTo(Prioridad, { foreignKey: 'prioridad_id', as: 'prioridad_detalle'
 Tarea.belongsTo(EstadoTarea, { foreignKey: 'estado_id', as: 'estado_detalle' });
 Tarea.belongsTo(TipoTarea, { foreignKey: 'tipo_id', as: 'tipo_detalle' });
 
+
+Proyecto.belongsTo(Escuela, { foreignKey: 'escuela_id' });
+Escuela.hasMany(Proyecto, { foreignKey: 'escuela_id' });
+
+
 module.exports = {
     sequelize,
     Usuario,
@@ -74,5 +95,6 @@ module.exports = {
     EstadoTarea,
     TipoTarea,
     PrioridadUS,
-    EstadoUS
+    EstadoUS,
+    Escuela 
 };

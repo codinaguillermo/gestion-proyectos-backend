@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: 'prioridades',
-    timestamps: false // No necesitamos createdAt/updatedAt para diccionarios
+    timestamps: false 
   });
   return Prioridad;
 };
