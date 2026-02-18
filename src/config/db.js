@@ -2,7 +2,11 @@
 require('dotenv').config();
 const { Sequelize } = require('sequelize');
 
-// Configuración de la conexión
+/**
+ * Propósito: Configurar Sequelize para forzar nombres de tablas en minúsculas y guiones bajos.
+ * Alimenta a: Todos los modelos definidos en el sistema.
+ * Retorna: Instancia de conexión con reglas de nomenclatura estables para Linux.
+ */
 const sequelize = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,
@@ -10,7 +14,12 @@ const sequelize = new Sequelize(
     {
         host: process.env.DB_HOST,
         dialect: 'mysql',
-        logging: false, // Ponemos false para que no llene la consola de SQL
+        logging: false,
+        define: {
+            underscored: true, // Usa snake_case (user_stories en vez de userStories)
+            freezeTableName: false, // Permite que Sequelize pluralice, pero bajo reglas claras
+            timestamps: true
+        }
     }
 );
 

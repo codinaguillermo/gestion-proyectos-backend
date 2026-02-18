@@ -41,12 +41,12 @@ EstadoUS.hasMany(UserStory, { foreignKey: 'estado_id' });
 
 // --- RELACIONES PROYECTO ---
 Proyecto.belongsToMany(Usuario, { 
-  through: 'ProyectoUsuarios', 
+  through: 'proyectousuarios', 
   as: 'integrantes', 
   foreignKey: 'proyecto_id' 
 });
 Usuario.belongsToMany(Proyecto, { 
-  through: 'ProyectoUsuarios', 
+  through: 'proyectousuarios', 
   as: 'proyectosAsignados', 
   foreignKey: 'usuario_id' 
 });
