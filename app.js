@@ -1,7 +1,7 @@
 // 1. IMPORTACIONES DE MÓDULOS (Siempre primero)
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // <--- IMPORTANTE: Para manejar rutas de archivos
+const path = require('path'); 
 require('dotenv').config();
 
 // 2. IMPORTACIÓN DE MODELOS (Desde el index)
@@ -25,12 +25,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- NUEVO: SERVIR ARCHIVOS ESTÁTICOS ---
-// Esto hace que cualquier archivo en 'public/uploads' sea accesible vía URL
-// Ejemplo: http://localhost:3000/uploads/avatars/foto.jpg
+// --- SERVIR ARCHIVOS ESTÁTICOS DE SUBIDAS ---
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// 6. RUTAS
+// 6. RUTAS DE LA API
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/proyectos', proyectoRoutes);
@@ -40,9 +38,24 @@ app.use('/api/common', commonRoutes);
 app.use('/api/escuelas', escuelaRoutes);
 app.use('/api/stats', statsRoutes);
 
-app.get('/', (req, res) => {
-  res.send('¡API Gestor de Proyectos funcionando! 🚀');
+// SERVIR EL FRONTEND (Carpeta dist) ---
+
+// 1. Decirle a Node dónde están los archivos estáticos del front
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// 2. Manejar cualquier ruta que no sea de la API (Solución compatible)
+app.use((req, res, next) => {
+    // Si la ruta NO empieza con /api y no es un archivo que ya encontró express.static
+    if (!req.path.startsWith('/api')) {
+        return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    }
+    next();
 });
+
+// Comentamos este porque ahora el "/" lo maneja el 'dist' de arriba
+// app.get('/', (req, res) => {
+//   res.send('¡API Gestor de Proyectos funcionando! 🚀');
+// });
 
 const startServer = async () => {
     try {
@@ -50,8 +63,6 @@ const startServer = async () => {
         console.log('✅ Conexión a MySQL establecida.');
 
         // SYNC: 
-        // Para que la nueva columna 'avatar' se cree sola, 
-        // una vez que modifiquemos el modelo Usuario, podrías usar alter: true una vez.
         await sequelize.sync({ force: false, alter: false });
         
         console.log('✅ Modelos sincronizados con la BD.');
@@ -59,6 +70,7 @@ const startServer = async () => {
 
         app.listen(PORT, () => {
             console.log(`\n>>> Servidor corriendo en http://localhost:${PORT}`);
+            console.log(`>>> Frontend listo. ¡Entrá a probarlo!`);
         });
 
     } catch (error) {

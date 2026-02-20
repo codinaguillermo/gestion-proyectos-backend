@@ -1,4 +1,8 @@
 node_modules/
 .env
 .DS_Store
-dist/
+
+
+# ESTO PARA LAS FOTOS:
+public/uploads/*
+!public/uploads/.gitkeep
