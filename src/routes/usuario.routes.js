@@ -10,8 +10,8 @@ const upload = require('../middlewares/upload.middleware');
  * Retorna: Router de Express con las rutas configuradas.
  */
 
-// 1. Crear usuario (Público o Admin/Docente según configuración de app.js)
-router.post('/', usuarioController.crearUsuario);
+// 1. Crear usuario - CON SOPORTE PARA FORMDATA / AVATAR
+router.post('/', upload.single('avatar'), usuarioController.crearUsuario);
 
 // 2. Listar usuarios (Requiere token, incluye filtros de búsqueda en el controlador)
 router.get('/', verificarToken, usuarioController.listarUsuarios);
