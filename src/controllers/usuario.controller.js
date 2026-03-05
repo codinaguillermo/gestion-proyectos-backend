@@ -1,4 +1,4 @@
-const { Usuario, Rol, Escuela, sequelize } = require('../models');
+const { Usuario, Rol, Escuela,Especialidad, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -9,7 +9,7 @@ const { Op } = require('sequelize');
 const crearUsuario = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { nombre, apellido, email, password, rol_id, curso, division, telefono, escuelas_ids } = req.body;
+        const { nombre, apellido, email, password, rol_id, curso, division, telefono, escuelas_ids, especialidad_id } = req.body;
 
         if (!nombre || !apellido || !email || !password || !rol_id) {
             return res.status(400).json({ error: 'Faltan datos obligatorios' });
@@ -39,6 +39,8 @@ const crearUsuario = async (req, res) => {
             email,
             password_hash: password,
             rol_id,
+            // Si es alumno, usa el especialidad_id enviado o el 1 por defecto
+            especialidad_id: Number(rol_id) === 3 ? (especialidad_id || 1) : 1,
             curso: Number(rol_id) === 3 ? curso : null,
             division: Number(rol_id) === 3 ? division : null,
             telefono
@@ -66,7 +68,7 @@ const actualizarUsuario = async (req, res) => {
     try {
         const usuarioLogueado = req.usuario; 
         const { id } = req.params; 
-        const { nombre, apellido, email, password, rol_id, curso, division, telefono, activo, escuelas_ids } = req.body;
+        const { nombre, apellido, email, password, rol_id, curso, division, telefono, activo, escuelas_ids , especialidad_id} = req.body;
 
         // Validación de permisos: Alumnos solo editan su propio perfil
         if (Number(usuarioLogueado.rol_id) === 3 && Number(usuarioLogueado.id) !== Number(id)) {
@@ -83,9 +85,11 @@ const actualizarUsuario = async (req, res) => {
         if (Number(finalRol) === 3) {
             datosAActualizar.curso = curso;
             datosAActualizar.division = division;
+            datosAActualizar.especialidad_id = especialidad_id || 1;
         } else {
             datosAActualizar.curso = null;
             datosAActualizar.division = null;
+            datosAActualizar.especialidad_id = 1; // <--- RESETEAR SI DEJA DE SER ALUMNO
         }
 
         // Solo Admin/Docente cambia roles y estado activo
@@ -136,7 +140,7 @@ const obtenerUsuarioPorId = async (req, res) => {
         const { id } = req.params;
         const usuario = await Usuario.findByPk(id, {
             // Agregamos 'avatar' a los atributos recuperados
-            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar'],
+            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar', 'especialidad_id'],
             include: [
                 { 
                     model: Escuela, 
@@ -215,7 +219,7 @@ const listarUsuarios = async (req, res) => {
         const usuarios = await Usuario.findAll({
             where: filtro,
             // Agregamos 'avatar' para que el listado pueda mostrar miniaturas
-            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar'],
+            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar', 'especialidad_id'],
             include: [
                 { model: Rol, attributes: ['nombre'] },
                 { 

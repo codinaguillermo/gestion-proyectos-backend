@@ -1,4 +1,4 @@
-const { PrioridadUS, EstadoUS, Escuela, Rol } = require('../models');
+const { PrioridadUS, EstadoUS, Escuela, Rol, Especialidad } = require('../models'); // <--- AGREGADO Especialidad
 
 // Función para Prioridades
 const getPrioridadesUS = async (req, res) => {
@@ -47,10 +47,25 @@ const listarRoles = async (req, res) => {
     }
 };
 
-// EXPORTACIÓN ÚNICA (Para evitar errores de "undefined" en las rutas)
+// NUEVA Función para Especialidades
+const listarEspecialidades = async (req, res) => {
+    try {
+        const especialidades = await Especialidad.findAll({
+            attributes: ['id', 'nombre'],
+            order: [['nombre', 'ASC']]
+        });
+        res.json(especialidades);
+    } catch (error) {
+        console.error("Error especialidades:", error);
+        res.status(500).json({ error: 'Error al obtener especialidades' });
+    }
+};
+
+// EXPORTACIÓN ÚNICA
 module.exports = { 
     getPrioridadesUS,
     getEstadosUS,
     listarEscuelas,
-    listarRoles
+    listarRoles,
+    listarEspecialidades 
 };

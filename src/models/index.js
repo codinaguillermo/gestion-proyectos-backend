@@ -8,7 +8,8 @@ const Tarea = require('./tarea.model');
 const Rol = require('./rol.model.js');
 const EstadoProyecto = require('./estadoProyecto.model.js');
 const UserStory = require('./userStory.model.js'); 
-const Escuela = require('./escuela.model'); // <--- NUEVO
+const Escuela = require('./escuela.model'); 
+const Especialidad = require('./especialidad.model');
 
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
@@ -17,7 +18,11 @@ const Prioridad = require('./prioridad.model')(sequelize, DataTypes);
 const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
 
-// --- NUEVA RELACIÓN: USUARIOS Y ESCUELAS (N:M) ---
+// --- RELACIÓN: USUARIO Y ESPECIALIDAD (1:N) ---
+Usuario.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialidad_detalle' });
+Especialidad.hasMany(Usuario, { foreignKey: 'especialidad_id' });
+
+// --- RELACIÓN: USUARIOS Y ESCUELAS (N:M) ---
 Usuario.belongsToMany(Escuela, { 
   through: 'usuario_escuelas', 
   as: 'escuelas', 
@@ -96,5 +101,6 @@ module.exports = {
     TipoTarea,
     PrioridadUS,
     EstadoUS,
-    Escuela 
+    Escuela,
+    Especialidad
 };

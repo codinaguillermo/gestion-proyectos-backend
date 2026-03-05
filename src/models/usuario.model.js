@@ -8,8 +8,13 @@ const Usuario = sequelize.define('usuario', {
   email: { type: DataTypes.STRING, allowNull: false, unique: true },
   password_hash: { type: DataTypes.STRING, allowNull: false },
   rol_id: { type: DataTypes.INTEGER, allowNull: false },
-  
-  // Nuevo campo para la foto de perfil
+  // Relación con la especialidad técnica
+  especialidad_id: { 
+    type: DataTypes.INTEGER, 
+    allowNull: true,
+    defaultValue: 1 // Asumiendo que el ID 1 será "Ninguna" o "No definida"
+  },
+  // campo para la foto de perfil
   avatar: { type: DataTypes.STRING, allowNull: true }, 
 
   curso: { type: DataTypes.STRING },

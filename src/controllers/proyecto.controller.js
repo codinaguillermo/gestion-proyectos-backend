@@ -1,10 +1,16 @@
 const { Op } = require('sequelize'); 
 const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela } = require('../models');
 
+/**
+ * Configuración de include para integrantes.
+ * Filtro 'activo: true' para que los inactivos no sumen carga ni aparezcan.
+ */
 const includeIntegrantesConCarga = { 
     model: Usuario, 
     as: 'integrantes', 
     attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division'],
+    // CAMBIO CLAVE: Solo traer los que están activos
+    where: { activo: true },
     include: [
         { model: Rol, attributes: ['nombre'] },
         {
@@ -43,16 +49,11 @@ const crearProyecto = async (req, res) => {
     try {
         const { nombre, descripcion, escuela_id } = req.body;
         const usuarioId = req.usuario.id;
-
         const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
         if (!estadoInicial) return res.status(500).json({ mensaje: "Falta configurar estados" });
 
         const nuevoProyecto = await Proyecto.create({
-            nombre,
-            descripcion,
-            estado_id: estadoInicial.id,
-            docente_owner_id: usuarioId,
-            escuela_id: escuela_id || null 
+            nombre, descripcion, estado_id: estadoInicial.id, docente_owner_id: usuarioId, escuela_id: escuela_id || null 
         });
 
         await nuevoProyecto.addIntegrante(usuarioId); 
@@ -64,7 +65,6 @@ const crearProyecto = async (req, res) => {
                 includeIntegrantesConCarga 
             ]
         });
-
         return res.status(201).json(proyectoConRelacion);
     } catch (error) {
         console.error("Error al crear proyecto:", error); 
@@ -76,23 +76,17 @@ const obtenerProyectos = async (req, res) => {
     try {
         const { id, rol_id } = req.usuario;
         let condicion = {};
-
         if (rol_id !== 1) {
             const participaciones = await Proyecto.findAll({
                 attributes: ['id'],
                 include: [{
-                    model: Usuario,
-                    as: 'integrantes',
-                    where: { id: id },
-                    attributes: [],
-                    through: { attributes: [] }
+                    model: Usuario, as: 'integrantes', where: { id: id }, attributes: [], through: { attributes: [] }
                 }],
                 raw: true
             });
             const ids = participaciones.map(p => p.id);
             condicion = { [Op.or]: [{ docente_owner_id: id }, { id: { [Op.in]: ids } }] };
         }
-
         const proyectos = await Proyecto.findAll({
             where: condicion,
             attributes: ['id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at'],
@@ -104,7 +98,6 @@ const obtenerProyectos = async (req, res) => {
             ],
             order: [['created_at', 'DESC']]
         });
-
         return res.json(proyectos);
     } catch (error) {
         console.error("Error en obtenerProyectos:", error);
@@ -116,15 +109,10 @@ const actualizarProyecto = async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, descripcion, estado_id, usuariosIds, escuela_id } = req.body;
-
         const proyecto = await Proyecto.findByPk(id);
         if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
-
         await proyecto.update({ nombre, descripcion, estado_id, escuela_id });
-
-        if (usuariosIds) {
-            await proyecto.setIntegrantes(usuariosIds); 
-        }
+        if (usuariosIds) await proyecto.setIntegrantes(usuariosIds); 
 
         const proyectoActualizado = await Proyecto.findByPk(id, {
             include: [
@@ -133,7 +121,6 @@ const actualizarProyecto = async (req, res) => {
                 includeIntegrantesConCarga 
             ]
         });
-
         return res.json({ mensaje: "Proyecto actualizado con éxito", proyecto: proyectoActualizado });
     } catch (error) {
         console.error("Error al actualizar proyecto:", error);
@@ -145,15 +132,9 @@ const eliminarProyecto = async (req, res) => {
     try {
         const { id } = req.params;
         const proyecto = await Proyecto.findByPk(id, {
-            include: [{
-                model: UserStory,
-                as: 'userStories',
-                include: [{ model: Tarea, as: 'tareas' }]
-            }]
+            include: [{ model: UserStory, as: 'userStories', include: [{ model: Tarea, as: 'tareas' }] }]
         });
-
         if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
-
         if (proyecto.userStories) {
             for (const us of proyecto.userStories) {
                 await Tarea.destroy({ where: { us_id: us.id } });
