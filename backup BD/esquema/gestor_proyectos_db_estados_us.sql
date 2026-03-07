@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -16,30 +18,19 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `prioridades`
+-- Table structure for table `estados_us`
 --
 
-DROP TABLE IF EXISTS `prioridades`;
+DROP TABLE IF EXISTS `estados_us`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `prioridades` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+CREATE TABLE `estados_us` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(50) NOT NULL,
-  `peso` int DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`)
+  UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `prioridades`
---
-
-LOCK TABLES `prioridades` WRITE;
-/*!40000 ALTER TABLE `prioridades` DISABLE KEYS */;
-INSERT INTO `prioridades` VALUES (1,'BAJA',10),(2,'MEDIA',20),(3,'ALTA',30),(4,'URGENTE',40);
-/*!40000 ALTER TABLE `prioridades` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -50,4 +41,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:06
+-- Dump completed on 2026-03-05 20:15:27

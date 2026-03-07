@@ -3,13 +3,11 @@ const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProye
 
 /**
  * Configuración de include para integrantes.
- * Filtro 'activo: true' para que los inactivos no sumen carga ni aparezcan.
  */
 const includeIntegrantesConCarga = { 
     model: Usuario, 
     as: 'integrantes', 
     attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division'],
-    // CAMBIO CLAVE: Solo traer los que están activos
     where: { activo: true },
     include: [
         { model: Rol, attributes: ['nombre'] },
@@ -26,11 +24,17 @@ const includeIntegrantesConCarga = {
     through: { attributes: [] } 
 };
 
+// 1. OBTENER UN PROYECTO POR ID
 const obtenerProyectoPorId = async (req, res) => {
     try {
         const { id } = req.params;
         const proyecto = await Proyecto.findByPk(id, {
-            attributes: ['id', 'nombre', 'descripcion', 'docente_owner_id', 'escuela_id'],
+            attributes: [
+                'id', 'nombre', 'descripcion', 'docente_owner_id', 'escuela_id',
+                'objetivo', 'objetivoBloqueado', 
+                'alcancePrototipo', 'alcancePrototipoBloqueado',
+                'alcanceFinal', 'alcanceFinalBloqueado'
+            ],
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
@@ -45,15 +49,21 @@ const obtenerProyectoPorId = async (req, res) => {
     }
 };
 
+// 2. CREAR PROYECTO (La que faltaba)
 const crearProyecto = async (req, res) => {
     try {
         const { nombre, descripcion, escuela_id } = req.body;
         const usuarioId = req.usuario.id;
         const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
+        
         if (!estadoInicial) return res.status(500).json({ mensaje: "Falta configurar estados" });
 
         const nuevoProyecto = await Proyecto.create({
-            nombre, descripcion, estado_id: estadoInicial.id, docente_owner_id: usuarioId, escuela_id: escuela_id || null 
+            nombre, 
+            descripcion, 
+            estado_id: estadoInicial.id, 
+            docente_owner_id: usuarioId, 
+            escuela_id: escuela_id || null 
         });
 
         await nuevoProyecto.addIntegrante(usuarioId); 
@@ -72,6 +82,7 @@ const crearProyecto = async (req, res) => {
     }
 };
 
+// 3. OBTENER LISTADO DE PROYECTOS
 const obtenerProyectos = async (req, res) => {
     try {
         const { id, rol_id } = req.usuario;
@@ -87,9 +98,15 @@ const obtenerProyectos = async (req, res) => {
             const ids = participaciones.map(p => p.id);
             condicion = { [Op.or]: [{ docente_owner_id: id }, { id: { [Op.in]: ids } }] };
         }
+        
         const proyectos = await Proyecto.findAll({
             where: condicion,
-            attributes: ['id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at'],
+            attributes: [
+                'id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at',
+                'objetivo', 'objetivoBloqueado', 
+                'alcancePrototipo', 'alcancePrototipoBloqueado',
+                'alcanceFinal', 'alcanceFinalBloqueado'
+            ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
@@ -105,29 +122,60 @@ const obtenerProyectos = async (req, res) => {
     }
 };
 
+// 4. ACTUALIZAR PROYECTO (Con Blindaje)
 const actualizarProyecto = async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre, descripcion, estado_id, usuariosIds, escuela_id } = req.body;
+        const { id: usuarioId, rol_id } = req.usuario; 
+        const esDocente = Number(rol_id) === 1 || Number(rol_id) === 2;
+
         const proyecto = await Proyecto.findByPk(id);
         if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
-        await proyecto.update({ nombre, descripcion, estado_id, escuela_id });
-        if (usuariosIds) await proyecto.setIntegrantes(usuariosIds); 
+
+        const datosParaActualizar = { ...req.body };
+
+        if (!esDocente) {
+            if (proyecto.objetivoBloqueado) delete datosParaActualizar.objetivo;
+            if (proyecto.alcancePrototipoBloqueado) delete datosParaActualizar.alcancePrototipo;
+            if (proyecto.alcanceFinalBloqueado) delete datosParaActualizar.alcanceFinal;
+            
+            delete datosParaActualizar.objetivoBloqueado;
+            delete datosParaActualizar.alcancePrototipoBloqueado;
+            delete datosParaActualizar.alcanceFinalBloqueado;
+        }
+
+        await proyecto.update(datosParaActualizar);
+
+        if (req.body.usuariosIds && esDocente) { 
+            await proyecto.setIntegrantes(req.body.usuariosIds); 
+        }
 
         const proyectoActualizado = await Proyecto.findByPk(id, {
+            attributes: [
+                'id', 'nombre', 'descripcion', 'docente_owner_id', 'escuela_id',
+                'objetivo', 'objetivoBloqueado', 
+                'alcancePrototipo', 'alcancePrototipoBloqueado',
+                'alcanceFinal', 'alcanceFinalBloqueado'
+            ],
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
                 { model: Escuela, attributes: ['nombre_largo', 'nombre_corto'] },
                 includeIntegrantesConCarga 
             ]
         });
-        return res.json({ mensaje: "Proyecto actualizado con éxito", proyecto: proyectoActualizado });
+
+        return res.json({ 
+            mensaje: "Proyecto actualizado con éxito", 
+            proyecto: proyectoActualizado 
+        });
+
     } catch (error) {
         console.error("Error al actualizar proyecto:", error);
         return res.status(500).json({ mensaje: "Error al actualizar proyecto" });
     }
 };
 
+// 5. ELIMINAR PROYECTO
 const eliminarProyecto = async (req, res) => {
     try {
         const { id } = req.params;

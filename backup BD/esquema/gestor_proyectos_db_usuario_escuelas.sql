@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -16,29 +18,25 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `estados_us`
+-- Table structure for table `usuario_escuelas`
 --
 
-DROP TABLE IF EXISTS `estados_us`;
+DROP TABLE IF EXISTS `usuario_escuelas`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `estados_us` (
+CREATE TABLE `usuario_escuelas` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(50) NOT NULL,
+  `usuario_id` int NOT NULL,
+  `escuela_id` int NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `nombre` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `usuario_id` (`usuario_id`),
+  KEY `escuela_id` (`escuela_id`),
+  CONSTRAINT `fk_escuela_id` FOREIGN KEY (`escuela_id`) REFERENCES `escuelas` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_school` FOREIGN KEY (`escuela_id`) REFERENCES `escuelas` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_user` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_usuario_id` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `estados_us`
---
-
-LOCK TABLES `estados_us` WRITE;
-/*!40000 ALTER TABLE `estados_us` DISABLE KEYS */;
-INSERT INTO `estados_us` VALUES (3,'BLOQUEADA'),(2,'EN DESARROLLO'),(1,'PENDIENTE'),(4,'TERMINADA');
-/*!40000 ALTER TABLE `estados_us` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -49,4 +47,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:06
+-- Dump completed on 2026-03-05 20:15:25

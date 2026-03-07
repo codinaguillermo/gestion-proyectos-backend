@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -30,16 +32,6 @@ CREATE TABLE `prioridades_us` (
   UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `prioridades_us`
---
-
-LOCK TABLES `prioridades_us` WRITE;
-/*!40000 ALTER TABLE `prioridades_us` DISABLE KEYS */;
-INSERT INTO `prioridades_us` VALUES (1,'BAJA',1),(2,'MEDIA',2),(3,'ALTA',3);
-/*!40000 ALTER TABLE `prioridades_us` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -50,4 +42,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:06
+-- Dump completed on 2026-03-05 20:15:26

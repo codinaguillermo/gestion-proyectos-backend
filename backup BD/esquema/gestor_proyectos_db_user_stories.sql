@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -16,29 +18,33 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `tipos_tarea`
+-- Table structure for table `user_stories`
 --
 
-DROP TABLE IF EXISTS `tipos_tarea`;
+DROP TABLE IF EXISTS `user_stories`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tipos_tarea` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `nombre` varchar(50) NOT NULL,
+CREATE TABLE `user_stories` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `proyecto_id` int NOT NULL,
+  `titulo` varchar(255) NOT NULL,
+  `descripcion` text,
+  `condiciones` text,
+  `prioridad_id` int DEFAULT NULL,
+  `estado_id` int DEFAULT NULL,
+  `fecha_inicio` datetime DEFAULT NULL,
+  `fecha_fin` datetime DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `id` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  KEY `fk_us_proyecto` (`proyecto_id`),
+  KEY `fk_us_prioridad` (`prioridad_id`),
+  KEY `fk_us_estado` (`estado_id`),
+  CONSTRAINT `fk_us_estado` FOREIGN KEY (`estado_id`) REFERENCES `estados_us` (`id`),
+  CONSTRAINT `fk_us_prioridad` FOREIGN KEY (`prioridad_id`) REFERENCES `prioridades_us` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tipos_tarea`
---
-
-LOCK TABLES `tipos_tarea` WRITE;
-/*!40000 ALTER TABLE `tipos_tarea` DISABLE KEYS */;
-INSERT INTO `tipos_tarea` VALUES (1,'Desarrollo'),(2,'Testing / QA'),(3,'Documentación'),(4,'Bug / Fix');
-/*!40000 ALTER TABLE `tipos_tarea` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -49,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:05
+-- Dump completed on 2026-03-05 20:15:27

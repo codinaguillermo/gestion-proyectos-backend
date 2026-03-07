@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -16,31 +18,22 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `estados_proyecto`
+-- Table structure for table `roles`
 --
 
-DROP TABLE IF EXISTS `estados_proyecto`;
+DROP TABLE IF EXISTS `roles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `estados_proyecto` (
+CREATE TABLE `roles` (
   `id` int NOT NULL AUTO_INCREMENT,
   `nombre` varchar(255) NOT NULL,
+  `ver_todo` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `nombre` (`nombre`),
   UNIQUE KEY `nombre_2` (`nombre`),
   UNIQUE KEY `nombre_3` (`nombre`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `estados_proyecto`
---
-
-LOCK TABLES `estados_proyecto` WRITE;
-/*!40000 ALTER TABLE `estados_proyecto` DISABLE KEYS */;
-INSERT INTO `estados_proyecto` VALUES (1,'ABIERTO'),(2,'CERRADO'),(3,'EN REVISIÓN');
-/*!40000 ALTER TABLE `estados_proyecto` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -51,4 +44,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:06
+-- Dump completed on 2026-03-05 20:15:25

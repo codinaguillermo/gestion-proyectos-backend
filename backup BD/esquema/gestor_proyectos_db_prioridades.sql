@@ -1,4 +1,6 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
+CREATE DATABASE  IF NOT EXISTS `gestor_proyectos_db` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `gestor_proyectos_db`;
+-- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: localhost    Database: gestor_proyectos_db
 -- ------------------------------------------------------
@@ -16,33 +18,20 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `escuelas`
+-- Table structure for table `prioridades`
 --
 
-DROP TABLE IF EXISTS `escuelas`;
+DROP TABLE IF EXISTS `prioridades`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `escuelas` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `nombre_corto` varchar(50) NOT NULL,
-  `nombre_largo` varchar(255) NOT NULL,
-  `cue` varchar(50) DEFAULT NULL,
-  `direccion` varchar(255) DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE `prioridades` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(50) NOT NULL,
+  `peso` int DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `id` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `escuelas`
---
-
-LOCK TABLES `escuelas` WRITE;
-/*!40000 ALTER TABLE `escuelas` DISABLE KEYS */;
-INSERT INTO `escuelas` VALUES (1,'EET24','EET N° 24 Simón de Iriondo','1232','aaaaasdas','2026-02-10 16:14:49','2026-02-12 19:55:43'),(2,'EET32','Esc. Tecnica de Barranqueras','232323','algun lado 123','2026-02-12 19:56:08','2026-02-12 19:56:08');
-/*!40000 ALTER TABLE `escuelas` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -53,4 +42,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-02-27 18:17:06
+-- Dump completed on 2026-03-05 20:15:27

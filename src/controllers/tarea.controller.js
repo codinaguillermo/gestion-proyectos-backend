@@ -51,6 +51,7 @@ const crearTarea = async (req, res) => {
     }
 };
 // --- ACTUALIZAR TAREA (PUT) ---
+// --- ACTUALIZAR TAREA (PUT) ---
 const actualizarTarea = async (req, res) => {
     try {
         const { id } = req.params;
@@ -72,6 +73,26 @@ const actualizarTarea = async (req, res) => {
         const estadoAnterior = Number(tarea.estado_id);
         const estadoNuevo = Number(estado_id);
         
+        // --- GESTIÓN AUTOMÁTICA DE FECHAS (SELLADO DE TIEMPO) ---
+        let nuevaFechaInicio = tarea.fechaInicioReal;
+        let nuevaFechaFin = tarea.fechaFinReal;
+
+        // REGLA: Si la tarea sale de TO DO (1) por primera vez, grabamos inicio
+        // Usamos !nuevaFechaInicio para no pisar la fecha si la mueven varias veces
+        if (estadoAnterior === 1 && estadoNuevo !== 1 && !nuevaFechaInicio) {
+            nuevaFechaInicio = new Date(); // Registra fecha y hora actual del servidor
+        }
+
+        // REGLA: Si la tarea entra a DONE (4), grabamos fin
+        if (estadoNuevo === 4 && !nuevaFechaFin) {
+            nuevaFechaFin = new Date();
+        }
+
+        // REGLA: Si sacan la tarea de DONE (la reabren), limpiamos la fecha de fin
+        if (estadoAnterior === 4 && estadoNuevo !== 4) {
+            nuevaFechaFin = null;
+        }
+
         // REGLA: No se puede pasar de TO DO (1) a DONE (4) directamente
         if (estadoAnterior === 1 && estadoNuevo === 4) {
             return res.status(400).json({ 
@@ -102,14 +123,12 @@ const actualizarTarea = async (req, res) => {
         }
 
         // --- DETERMINAR HORAS REALES A GUARDAR ---
-        // Si el estado anterior era DONE (4) o el nuevo es TO DO (1), 
-        // ignoramos el envío de horasReales y dejamos lo que ya estaba.
         let horasFinales = horasReales;
         if (estadoAnterior === 4 || estadoNuevo === 1) {
             horasFinales = tarea.horasReales;
         }
 
-        // --- ACTUALIZACIÓN ---
+        // --- ACTUALIZACIÓN EN BASE DE DATOS ---
         await Tarea.update(
             { 
                 titulo, 
@@ -123,7 +142,9 @@ const actualizarTarea = async (req, res) => {
                 testeado, 
                 documentado, 
                 utilizable, 
-                horasReales: horasFinales, // Usamos la variable controlada
+                horasReales: horasFinales,
+                fechaInicioReal: nuevaFechaInicio, // Campo actualizado automáticamente
+                fechaFinReal: nuevaFechaFin,       // Campo actualizado automáticamente
                 criteriosAceptacion: criterios_aceptacion,
                 comentarioCierre: comentario_cierre,
                 linkEvidencia: link_evidencia

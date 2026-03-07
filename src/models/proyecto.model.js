@@ -19,15 +19,52 @@ const Proyecto = sequelize.define('proyecto', {
   docente_owner_id: { 
     type: DataTypes.INTEGER 
   },
-  // NUEVO CAMPO: Para vincular el proyecto a una escuela específica
   escuela_id: {
     type: DataTypes.INTEGER,
-    allowNull: true, // Lo dejamos opcional por si hay proyectos globales, pero Alejandra lo usará siempre
+    allowNull: true,
     references: {
       model: 'escuelas',
       key: 'id'
     }
+  },
+
+  /* --- CAMPOS DE IDENTIDAD ESTRATÉGICA (NUEVOS) --- */
+  
+  // 1. Objetivo General
+  objetivo: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  objetivoBloqueado: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'objetivo_bloqueado' // Sincronizado con el ALTER TABLE que hicimos
+  },
+
+  // 2. Alcance del Prototipo (Entrega Real)
+  alcancePrototipo: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'alcance_prototipo'
+  },
+  alcancePrototipoBloqueado: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'alcance_prototipo_bloqueado'
+  },
+
+  // 3. Alcance Producto Final (Visión Comercial)
+  alcanceFinal: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'alcance_producto_final'
+  },
+  alcanceFinalBloqueado: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'alcance_final_bloqueado'
   }
+
 }, {
   tableName: 'proyectos',
   timestamps: true,
