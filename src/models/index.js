@@ -10,6 +10,7 @@ const EstadoProyecto = require('./estadoProyecto.model.js');
 const UserStory = require('./userStory.model.js'); 
 const Escuela = require('./escuela.model'); 
 const Especialidad = require('./especialidad.model');
+const Entregable = require('./entregable.model'); // NUEVO
 
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
@@ -69,6 +70,10 @@ Proyecto.belongsTo(Usuario, { foreignKey: 'docente_owner_id', as: 'owner' });
 Proyecto.hasMany(UserStory, { foreignKey: 'proyecto_id', as: 'userStories' });
 UserStory.belongsTo(Proyecto, { foreignKey: 'proyecto_id' });
 
+// --- RELACIÓN PROYECTO Y ENTREGABLES (NUEVO) ---
+Proyecto.hasMany(Entregable, { foreignKey: 'proyecto_id', as: 'entregables' });
+Entregable.belongsTo(Proyecto, { foreignKey: 'proyecto_id' });
+
 // --- RELACIONES TAREAS ---
 UserStory.hasMany(Tarea, { foreignKey: 'us_id', as: 'tareas' });
 Tarea.belongsTo(UserStory, { foreignKey: 'us_id', as: 'userStory' });
@@ -83,10 +88,8 @@ Tarea.belongsTo(Prioridad, { foreignKey: 'prioridad_id', as: 'prioridad_detalle'
 Tarea.belongsTo(EstadoTarea, { foreignKey: 'estado_id', as: 'estado_detalle' });
 Tarea.belongsTo(TipoTarea, { foreignKey: 'tipo_id', as: 'tipo_detalle' });
 
-
 Proyecto.belongsTo(Escuela, { foreignKey: 'escuela_id' });
 Escuela.hasMany(Proyecto, { foreignKey: 'escuela_id' });
-
 
 module.exports = {
     sequelize,
@@ -102,5 +105,6 @@ module.exports = {
     PrioridadUS,
     EstadoUS,
     Escuela,
-    Especialidad
+    Especialidad,
+    Entregable // NUEVO
 };

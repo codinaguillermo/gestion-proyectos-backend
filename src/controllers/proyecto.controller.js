@@ -1,5 +1,5 @@
 const { Op } = require('sequelize'); 
-const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela } = require('../models');
+const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela, Entregable } = require('../models');
 
 /**
  * Configuración de include para integrantes.
@@ -38,6 +38,7 @@ const obtenerProyectoPorId = async (req, res) => {
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
+                { model: Entregable, as: 'entregables' }, // AGREGADO
                 includeIntegrantesConCarga 
             ]
         });
@@ -49,7 +50,7 @@ const obtenerProyectoPorId = async (req, res) => {
     }
 };
 
-// 2. CREAR PROYECTO (La que faltaba)
+// 2. CREAR PROYECTO
 const crearProyecto = async (req, res) => {
     try {
         const { nombre, descripcion, escuela_id } = req.body;
@@ -72,6 +73,7 @@ const crearProyecto = async (req, res) => {
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
                 { model: Escuela, attributes: ['nombre_largo', 'nombre_corto'] },
+                { model: Entregable, as: 'entregables' }, // AGREGADO
                 includeIntegrantesConCarga 
             ]
         });
@@ -111,6 +113,7 @@ const obtenerProyectos = async (req, res) => {
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
                 { model: UserStory, as: 'userStories' },
+                { model: Entregable, as: 'entregables' }, // AGREGADO
                 includeIntegrantesConCarga 
             ],
             order: [['created_at', 'DESC']]
@@ -122,17 +125,22 @@ const obtenerProyectos = async (req, res) => {
     }
 };
 
-// 4. ACTUALIZAR PROYECTO (Con Blindaje)
+// 4. ACTUALIZAR PROYECTO (Con Sincronización Atómica de Entregables)
 const actualizarProyecto = async (req, res) => {
+    const t = await sequelize.transaction(); // INICIO TRANSACCIÓN
     try {
         const { id } = req.params;
         const { id: usuarioId, rol_id } = req.usuario; 
         const esDocente = Number(rol_id) === 1 || Number(rol_id) === 2;
 
         const proyecto = await Proyecto.findByPk(id);
-        if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
+        if (!proyecto) {
+            await t.rollback();
+            return res.status(404).json({ mensaje: "Proyecto no encontrado" });
+        }
 
-        const datosParaActualizar = { ...req.body };
+        // Separamos entregables y usuariosIds del resto del body
+        const { entregables, usuariosIds, ...datosParaActualizar } = req.body;
 
         if (!esDocente) {
             if (proyecto.objetivoBloqueado) delete datosParaActualizar.objetivo;
@@ -144,11 +152,39 @@ const actualizarProyecto = async (req, res) => {
             delete datosParaActualizar.alcanceFinalBloqueado;
         }
 
-        await proyecto.update(datosParaActualizar);
+        // Actualización básica del proyecto
+        await proyecto.update(datosParaActualizar, { transaction: t });
 
-        if (req.body.usuariosIds && esDocente) { 
-            await proyecto.setIntegrantes(req.body.usuariosIds); 
+        // Sincronización de integrantes (N:M)
+        if (usuariosIds && esDocente) { 
+            await proyecto.setIntegrantes(usuariosIds, { transaction: t }); 
         }
+
+        // --- LÓGICA DE ENTREGABLES (Sincronización manual en una sola transacción) ---
+        if (entregables && Array.isArray(entregables)) {
+            // Buscamos lo que hay actualmente en la BD para este proyecto
+            const actualesBD = await Entregable.findAll({ where: { proyecto_id: id } });
+            const idsRecibidos = entregables.filter(e => e.id).map(e => e.id);
+
+            // 1. Borrar los que no vienen en el array (borrado lógico)
+            const paraBorrar = actualesBD.filter(e => !idsRecibidos.includes(e.id)).map(e => e.id);
+            if (paraBorrar.length > 0) {
+                await Entregable.destroy({ where: { id: paraBorrar }, transaction: t });
+            }
+
+            // 2. Crear o Actualizar
+            for (const ent of entregables) {
+                if (ent.id) {
+                    // Si tiene ID, actualizamos
+                    await Entregable.update(ent, { where: { id: ent.id }, transaction: t });
+                } else {
+                    // Si no tiene ID, es nuevo
+                    await Entregable.create({ ...ent, proyecto_id: id }, { transaction: t });
+                }
+            }
+        }
+
+        await t.commit(); // ÉXITO: Se guarda todo o nada
 
         const proyectoActualizado = await Proyecto.findByPk(id, {
             attributes: [
@@ -160,6 +196,7 @@ const actualizarProyecto = async (req, res) => {
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
                 { model: Escuela, attributes: ['nombre_largo', 'nombre_corto'] },
+                { model: Entregable, as: 'entregables' }, // INCLUIDO EN RESPUESTA
                 includeIntegrantesConCarga 
             ]
         });
@@ -170,6 +207,7 @@ const actualizarProyecto = async (req, res) => {
         });
 
     } catch (error) {
+        await t.rollback(); // ERROR: Deshace cualquier cambio hecho en esta ejecución
         console.error("Error al actualizar proyecto:", error);
         return res.status(500).json({ mensaje: "Error al actualizar proyecto" });
     }
