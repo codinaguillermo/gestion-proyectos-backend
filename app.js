@@ -16,6 +16,7 @@ const userStoryRoutes = require('./src/routes/userStory.routes');
 const commonRoutes = require('./src/routes/common.routes');
 const escuelaRoutes = require('./src/routes/escuela.routes');
 const statsRoutes = require('./src/routes/stats.routes');
+const sugerenciaRoutes = require('./src/routes/sugerencia.routes');
 
 // 4. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -37,6 +38,7 @@ app.use('/api/user-stories', userStoryRoutes);
 app.use('/api/common', commonRoutes);
 app.use('/api/escuelas', escuelaRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/sugerencias', sugerenciaRoutes);
 
 // SERVIR EL FRONTEND (Carpeta dist) ---
 

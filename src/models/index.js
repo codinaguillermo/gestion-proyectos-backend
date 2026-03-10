@@ -19,6 +19,23 @@ const Prioridad = require('./prioridad.model')(sequelize, DataTypes);
 const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
 
+// --- NUEVO v1.2.0: Sugerencias ---
+// Lo cargamos usando el mismo patrón que Prioridad o EstadoTarea
+const Sugerencia = require("./sugerencia.model.js")(sequelize, DataTypes);
+
+// --- RELACIONES SUGERENCIAS ---
+// Una sugerencia pertenece a un autor (Docente/Admin)
+Sugerencia.belongsTo(Usuario, {
+  foreignKey: "usuario_id",
+  as: "autor",
+});
+
+// Una sugerencia puede tener una respuesta de un admin
+Sugerencia.belongsTo(Usuario, {
+  foreignKey: "admin_id",
+  as: "admin_que_respondio",
+});
+
 // --- RELACIÓN: USUARIO Y ESPECIALIDAD (1:N) ---
 Usuario.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialidad_detalle' });
 Especialidad.hasMany(Usuario, { foreignKey: 'especialidad_id' });
@@ -106,5 +123,6 @@ module.exports = {
     EstadoUS,
     Escuela,
     Especialidad,
-    Entregable // NUEVO
+    Entregable,
+    Sugerencia // Exportamos el nuevo modelo
 };
