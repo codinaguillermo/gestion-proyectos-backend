@@ -49,6 +49,7 @@ exports.crearSugerencia = async (req, res) => {
   }
 };
 
+
 exports.responderSugerencia = async (req, res) => {
   try {
     const sug = await Sugerencia.findByPk(req.params.id);
