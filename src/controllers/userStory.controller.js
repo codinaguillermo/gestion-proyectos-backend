@@ -5,14 +5,15 @@ const {
     EstadoUS, 
     Tarea, 
     EstadoTarea, 
-    Usuario 
+    Usuario,
+    sequelize // Importamos sequelize para las transacciones
 } = require('../models');
-
 
 // --- CREAR USER STORY ---
 const crearUserStory = async (req, res) => {
     try {
-        const { proyecto_id, titulo, descripcion, condiciones, prioridad_id, estado_id } = req.body;
+        // Agregamos fecha_entrega al destructuring
+        const { proyecto_id, titulo, descripcion, condiciones, prioridad_id, estado_id, fecha_entrega } = req.body;
 
         const proyecto = await Proyecto.findByPk(proyecto_id);
         if (!proyecto) {
@@ -25,7 +26,8 @@ const crearUserStory = async (req, res) => {
             descripcion,
             condiciones,
             prioridad_id,
-            estado_id: estado_id || 1
+            estado_id: estado_id || 1,
+            fecha_entrega // Nuevo campo persistido
         });
 
         return res.status(201).json(nuevaUS);
@@ -35,30 +37,67 @@ const crearUserStory = async (req, res) => {
     }
 };
 
+
+// --- OBTENER UNA SOLA USER STORY POR ID ---
+const obtenerUserStoryPorId = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const story = await UserStory.findByPk(id, {
+            include: [
+                { model: PrioridadUS, as: 'prioridad_detalle' },
+                { model: EstadoUS, as: 'estado_detalle' },
+                { 
+                    model: UserStory, 
+                    as: 'predecesoras', 
+                    attributes: ['id', 'titulo'],
+                    through: { attributes: [] } 
+                },
+                { 
+                    model: Tarea, 
+                    as: 'tareas',
+                    include: [
+                        { model: Usuario, as: 'responsable', attributes: ['id', 'nombre', 'apellido'] },
+                        { model: EstadoTarea, as: 'estado_detalle', attributes: ['id', 'nombre'] }
+                    ]
+                }
+            ]
+        });
+
+        if (!story) {
+            return res.status(404).json({ mensaje: "User Story no encontrada" });
+        }
+
+        return res.json(story);
+    } catch (error) {
+        console.error("Error al obtener User Story por ID:", error);
+        return res.status(500).json({ mensaje: "Error al obtener US", detalle: error.message });
+    }
+};
+
 // --- OBTENER USER STORIES POR PROYECTO ---
 const obtenerUserStoriesPorProyecto = async (req, res) => {
     try {
         const { proyectoId } = req.params;
         const stories = await UserStory.findAll({
             where: { proyecto_id: proyectoId },
-            attributes: ['id', 'titulo', 'descripcion', 'condiciones', 'prioridad_id', 'estado_id', 'proyecto_id'],
+            // Agregamos fecha_entrega a los atributos
+            attributes: ['id', 'titulo', 'descripcion', 'condiciones', 'prioridad_id', 'estado_id', 'proyecto_id', 'fecha_entrega'],
             include: [
                 { model: PrioridadUS, as: 'prioridad_detalle' },
                 { model: EstadoUS, as: 'estado_detalle' },
+                // NUEVO: Incluimos las US de las que depende (predecesoras)
+                { 
+                    model: UserStory, 
+                    as: 'predecesoras', 
+                    attributes: ['id', 'titulo'],
+                    through: { attributes: [] } 
+                },
                 { 
                     model: Tarea, 
                     as: 'tareas',
                     include: [
-                        { 
-                            model: Usuario, 
-                            as: 'responsable', // Este alias debe coincidir con index.js
-                            attributes: ['id', 'nombre'] 
-                        },
-                        { 
-                            model: EstadoTarea, 
-                            as: 'estado_detalle', // Este alias debe coincidir con index.js
-                            attributes: ['id', 'nombre'] 
-                        }
+                        { model: Usuario, as: 'responsable', attributes: ['id', 'nombre'] },
+                        { model: EstadoTarea, as: 'estado_detalle', attributes: ['id', 'nombre'] }
                     ]
                 }
             ],
@@ -71,10 +110,68 @@ const obtenerUserStoriesPorProyecto = async (req, res) => {
     }
 };
 
-// --- ELIMINAR USER STORY ---
+// --- ACTUALIZAR USER STORY (CON BLOQUEO Y ATOMICIDAD) ---
+const actualizarUserStory = async (req, res) => {
+    // Iniciamos transacción para que el cambio de datos y dependencias sea atómico
+    const t = await sequelize.transaction();
+    
+    try {
+        const { id } = req.params;
+        // Agregamos fecha_entrega y dependenciasIds al body
+        const { titulo, descripcion, condiciones, prioridad_id, estado_id, fecha_entrega, dependenciasIds } = req.body;
+
+        const us = await UserStory.findByPk(id);
+        if (!us) {
+            await t.rollback();
+            return res.status(404).json({ mensaje: "User Story no encontrada" });
+        }
+
+        // --- VALIDACIÓN DE ESTADO 4 (Mantenemos tu lógica) ---
+        if (Number(estado_id) === 4) {
+            const tareas = await Tarea.findAll({ where: { us_id: id } });
+            const tareasPendientes = tareas.filter(t => Number(t.estado_id) !== 4);
+
+            if (tareasPendientes.length > 0) {
+                await t.rollback();
+                return res.status(400).json({ 
+                    mensaje: "No se puede terminar la US",
+                    detalle: `Aún quedan ${tareasPendientes.length} tareas sin completar.` 
+                });
+            }
+        }
+
+        // --- ACTUALIZACIÓN DE DATOS ---
+        await us.update({ 
+            titulo, 
+            descripcion, 
+            condiciones, 
+            prioridad_id, 
+            estado_id, 
+            fecha_entrega 
+        }, { transaction: t });
+
+        // --- GESTIÓN DE DEPENDENCIAS (N:M) ---
+        // dependenciasIds debe ser un array de IDs: [1, 4, 8]
+        if (Array.isArray(dependenciasIds)) {
+            // setPredecesoras es un método mágico que crea Sequelize por el alias 'predecesoras' en index.js
+            await us.setPredecesoras(dependenciasIds, { transaction: t });
+        }
+
+        await t.commit();
+        return res.json({ mensaje: "User Story actualizada correctamente", us });
+
+    } catch (error) {
+        await t.rollback();
+        console.error("ERROR EN CONTROLADOR:", error);
+        return res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
+    }
+};
+
 const eliminarUserStory = async (req, res) => {
     try {
         const { id } = req.params;
+        // Primero borramos las dependencias en la tabla intermedia manualmente si no confias en ON DELETE CASCADE
+        // (Aunque Sequelize con a través de 'us_dependencias' debería manejarlo)
         await Tarea.destroy({ where: { us_id: id } });
         const resultado = await UserStory.destroy({ where: { id } });
 
@@ -88,59 +185,10 @@ const eliminarUserStory = async (req, res) => {
     }
 };
 
-// --- ACTUALIZAR USER STORY (CON BLOQUEO REAL) ---
-const actualizarUserStory = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { titulo, descripcion, condiciones, prioridad_id, estado_id } = req.body;
-
-        console.log("--- INICIO VALIDACIÓN ---");
-        console.log("ID US:", id);
-        console.log("Estado que llega del Front (estado_id):", estado_id, "Tipo:", typeof estado_id);
-
-        const us = await UserStory.findByPk(id);
-        if (!us) return res.status(404).json({ mensaje: "User Story no encontrada" });
-
-        // REGLA: Si intentan pasar a Terminada (ID 4)
-        if (Number(estado_id) === 4) {
-            console.log("Detectado intento de pasar a estado 4 (Terminada).");
-
-            // Buscamos tareas de esta US
-            const tareas = await Tarea.findAll({
-                where: { us_id: id }
-            });
-
-            console.log(`Se encontraron ${tareas.length} tareas para esta US.`);
-
-            // Miramos los estados de las tareas encontradas
-            const tareasPendientes = tareas.filter(t => {
-                console.log(`Tarea ID: ${t.id} - Estado Actual: ${t.estado_id}`);
-                return Number(t.estado_id) !== 4;
-            });
-
-            if (tareasPendientes.length > 0) {
-                console.log("BLOQUEO ACTIVADO: Hay tareas que no son estado 4.");
-                return res.status(400).json({ 
-                    mensaje: "No se puede terminar la US",
-                    detalle: `Aún quedan ${tareasPendientes.length} tareas sin completar.` 
-                });
-            }
-        }
-
-        console.log("Validación superada. Actualizando...");
-        await us.update({ titulo, descripcion, condiciones, prioridad_id, estado_id });
-
-        return res.json({ mensaje: "User Story actualizada correctamente", us });
-
-    } catch (error) {
-        console.error("ERROR EN CONTROLADOR:", error);
-        return res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
-    }
-};
-
 module.exports = {
     crearUserStory,
     obtenerUserStoriesPorProyecto,
     actualizarUserStory,
-    eliminarUserStory 
+    eliminarUserStory ,
+    obtenerUserStoryPorId
 };

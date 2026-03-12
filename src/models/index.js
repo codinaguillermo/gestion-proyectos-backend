@@ -108,6 +108,31 @@ Tarea.belongsTo(TipoTarea, { foreignKey: 'tipo_id', as: 'tipo_detalle' });
 Proyecto.belongsTo(Escuela, { foreignKey: 'escuela_id' });
 Escuela.hasMany(Proyecto, { foreignKey: 'escuela_id' });
 
+// --- DEPENDENCIAS USER STORY (N:M Auto-referencial) ---
+UserStory.belongsToMany(UserStory, { 
+  through: 'us_dependencias', 
+  as: 'predecesoras', 
+  foreignKey: 'us_id', 
+  otherKey: 'depende_de_us_id' 
+});
+
+UserStory.belongsToMany(UserStory, { 
+  through: 'us_dependencias', 
+  as: 'sucesoras', 
+  foreignKey: 'depende_de_us_id', 
+  otherKey: 'us_id' 
+});
+
+//  DEPENDENCIAS TAREAS (N:M Auto-referencial) ---
+Tarea.belongsToMany(Tarea, { 
+  through: 'tarea_dependencias', 
+  as: 'requisitos', 
+  foreignKey: 'tarea_id', 
+  otherKey: 'depende_de_id',
+  timestamps: false 
+});
+
+
 module.exports = {
     sequelize,
     Usuario,

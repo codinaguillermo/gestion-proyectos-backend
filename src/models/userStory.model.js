@@ -23,7 +23,8 @@ const UserStory = sequelize.define('UserStory', {
     condiciones: {
         type: DataTypes.TEXT,
         allowNull: true
-    }
+    },
+    fecha_entrega: { type: DataTypes.DATEONLY, allowNull: true }   
 }, {
     tableName: 'user_stories',
     underscored: true,

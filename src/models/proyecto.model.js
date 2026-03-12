@@ -25,10 +25,10 @@ const Proyecto = sequelize.define('proyecto', {
     references: {
       model: 'escuelas',
       key: 'id'
-    }
+    },    
   },
 
-  /* --- CAMPOS DE IDENTIDAD ESTRATÉGICA (NUEVOS) --- */
+  /* --- CAMPOS DE IDENTIDAD ESTRATÉGICA --- */
   
   // 1. Objetivo General
   objetivo: {
@@ -63,6 +63,14 @@ const Proyecto = sequelize.define('proyecto', {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
     field: 'alcance_final_bloqueado'
+  },
+  fecha_cierre_1: {
+    type: DataTypes.DATEONLY, // Usamos DATEONLY para manejar YYYY-MM-DD sin hora
+    allowNull: true
+  },
+  fecha_cierre_2: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
   }
 
 }, {

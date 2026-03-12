@@ -26,6 +26,9 @@ router.post('/', tareaController.crearTarea);
  */
 router.get('/proyecto/:proyecto_id', tareaController.obtenerTareasProyecto);
 
+router.get('/:id', tareaController.obtenerTareaPorId); 
+
+
 router.put('/:id', tareaController.actualizarTarea);
 router.delete('/:id', tareaController.eliminarTarea);
 
@@ -43,5 +46,6 @@ router.get('/config/maestras', tareaController.obtenerTablasMaestras);
  * Nota: Se cambió a PATCH y la ruta a /log-horas para coincidir con el service actual.
  */
 router.patch('/:id/log-horas', tareaController.registrarAvanceHoras);
+
 
 module.exports = router;

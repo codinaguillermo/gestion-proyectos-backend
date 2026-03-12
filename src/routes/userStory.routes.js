@@ -10,5 +10,6 @@ router.get('/proyecto/:proyectoId', verificarToken, userStoryController.obtenerU
 router.delete('/:id', verificarToken, userStoryController.eliminarUserStory);
 // El método debe ser PUT o PATCH según como lo llame tu userStory.service.js
 router.put('/:id', verificarToken, userStoryController.actualizarUserStory);
+router.get('/:id', verificarToken, userStoryController.obtenerUserStoryPorId);
 
 module.exports = router;
