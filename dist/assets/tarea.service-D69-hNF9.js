@@ -1,0 +1,1 @@
+import{I as a}from"./index-DjZd-fZn.js";const s={getAll(){return a.get("/tareas")},registrarHoras(r,t){return a.patch(`/tareas/${r}/log-horas`,{horasNuevas:t})},update(r,t){return a.put(`/tareas/${r}`,t)},create(r){return a.post("/tareas",r)}};export{s as t};
