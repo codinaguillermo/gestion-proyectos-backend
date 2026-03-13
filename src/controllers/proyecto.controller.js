@@ -3,11 +3,13 @@ const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, 
 
 /**
  * Configuración de include para integrantes.
+ * SE AGREGÓ 'telefono' A LOS ATTRIBUTES.
  */
 const includeIntegrantesConCarga = { 
     model: Usuario, 
     as: 'integrantes', 
-    attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division'],
+    // AGREGAMOS 'telefono' aquí para que el Frontend lo reciba
+    attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono'],
     where: { activo: true },
     include: [
         { model: Rol, attributes: ['nombre'] },
@@ -34,7 +36,7 @@ const obtenerProyectoPorId = async (req, res) => {
                 'objetivo', 'objetivoBloqueado', 
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2' // AGREGADO v1.3.0
+                'fecha_cierre_1', 'fecha_cierre_2' 
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
@@ -66,8 +68,8 @@ const crearProyecto = async (req, res) => {
             estado_id: estadoInicial.id, 
             docente_owner_id: usuarioId, 
             escuela_id: escuela_id || null,
-            fecha_cierre_1: fecha_cierre_1 || null, // AGREGADO v1.3.0
-            fecha_cierre_2: fecha_cierre_2 || null  // AGREGADO v1.3.0
+            fecha_cierre_1: fecha_cierre_1 || null, 
+            fecha_cierre_2: fecha_cierre_2 || null  
         });
 
         await nuevoProyecto.addIntegrante(usuarioId); 
@@ -111,7 +113,7 @@ const obtenerProyectos = async (req, res) => {
                 'objetivo', 'objetivoBloqueado', 
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2' // AGREGADO v1.3.0
+                'fecha_cierre_1', 'fecha_cierre_2' 
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
@@ -145,7 +147,6 @@ const actualizarProyecto = async (req, res) => {
 
         const { entregables, usuariosIds, ...datosParaActualizar } = req.body;
 
-        // Regla de negocio para no-docentes (mantenida)
         if (!esDocente) {
             if (proyecto.objetivoBloqueado) delete datosParaActualizar.objetivo;
             if (proyecto.alcancePrototipoBloqueado) delete datosParaActualizar.alcancePrototipo;
@@ -155,12 +156,10 @@ const actualizarProyecto = async (req, res) => {
             delete datosParaActualizar.alcancePrototipoBloqueado;
             delete datosParaActualizar.alcanceFinalBloqueado;
             
-            // Los alumnos no deberían poder cambiar las fechas de cierre
             delete datosParaActualizar.fecha_cierre_1;
             delete datosParaActualizar.fecha_cierre_2;
         }
 
-        // Actualización básica (aquí entran las fechas si vienen en datosParaActualizar)
         await proyecto.update(datosParaActualizar, { transaction: t });
 
         if (usuariosIds && esDocente) { 
@@ -193,7 +192,7 @@ const actualizarProyecto = async (req, res) => {
                 'objetivo', 'objetivoBloqueado', 
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2' // INCLUIDO EN RETORNO
+                'fecha_cierre_1', 'fecha_cierre_2' 
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['nombre'] },
@@ -215,7 +214,7 @@ const actualizarProyecto = async (req, res) => {
     }
 };
 
-// 5. ELIMINAR PROYECTO (Sin cambios necesarios)
+// 5. ELIMINAR PROYECTO
 const eliminarProyecto = async (req, res) => {
     try {
         const { id } = req.params;

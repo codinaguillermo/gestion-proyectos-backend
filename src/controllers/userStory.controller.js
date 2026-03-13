@@ -80,12 +80,10 @@ const obtenerUserStoriesPorProyecto = async (req, res) => {
         const { proyectoId } = req.params;
         const stories = await UserStory.findAll({
             where: { proyecto_id: proyectoId },
-            // Agregamos fecha_entrega a los atributos
             attributes: ['id', 'titulo', 'descripcion', 'condiciones', 'prioridad_id', 'estado_id', 'proyecto_id', 'fecha_entrega'],
             include: [
                 { model: PrioridadUS, as: 'prioridad_detalle' },
                 { model: EstadoUS, as: 'estado_detalle' },
-                // NUEVO: Incluimos las US de las que depende (predecesoras)
                 { 
                     model: UserStory, 
                     as: 'predecesoras', 
@@ -96,7 +94,8 @@ const obtenerUserStoriesPorProyecto = async (req, res) => {
                     model: Tarea, 
                     as: 'tareas',
                     include: [
-                        { model: Usuario, as: 'responsable', attributes: ['id', 'nombre'] },
+                        // FIX: Agregamos 'apellido' aquí
+                        { model: Usuario, as: 'responsable', attributes: ['id', 'nombre', 'apellido'] }, 
                         { model: EstadoTarea, as: 'estado_detalle', attributes: ['id', 'nombre'] }
                     ]
                 }
