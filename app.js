@@ -43,13 +43,32 @@ app.use('/api/sugerencias', sugerenciaRoutes);
 // SERVIR EL FRONTEND (Carpeta dist) ---
 
 // 1. Decirle a Node dónde están los archivos estáticos del front
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'dist'), {
+    setHeaders: (res, filePath) => {
+        // REGLA DE ORO: El index.html NUNCA se cachea en el navegador
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            // Los archivos con hash (js, css, png) se pueden cachear
+            // porque si cambian, Vite les cambia el nombre
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    }
+}));
 
-// 2. Manejar cualquier ruta que no sea de la API (Solución compatible)
+// 2. Manejar cualquier ruta que no sea de la API (Solución SPA para Vue Router)
 app.use((req, res, next) => {
-    // Si la ruta NO empieza con /api y no es un archivo que ya encontró express.static
     if (!req.path.startsWith('/api')) {
-        return res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        // Al enviar el index.html por descarte, también le quitamos el caché
+        return res.sendFile(path.join(__dirname, 'dist', 'index.html'), {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
     }
     next();
 });
