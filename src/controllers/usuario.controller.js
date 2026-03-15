@@ -198,21 +198,11 @@ const listarUsuarios = async (req, res) => {
         if (escuela_id) {
             filtro[Op.and] = [
                 ...(filtro[Op.and] || []),
-                {
-                    [Op.or]: [
-                        { rol_id: { [Op.ne]: 3 } }, 
-                        {
-                            [Op.and]: [
-                                { rol_id: 3 },
-                                sequelize.literal(`EXISTS (
-                                    SELECT 1 FROM usuario_escuelas 
-                                    WHERE usuario_escuelas.usuario_id = usuario.id 
-                                    AND usuario_escuelas.escuela_id = ${Number(escuela_id)}
-                                )`)
-                            ]
-                        }
-                    ]
-                }
+                sequelize.literal(`EXISTS (
+                    SELECT 1 FROM usuario_escuelas 
+                    WHERE usuario_escuelas.usuario_id = usuario.id 
+                    AND usuario_escuelas.escuela_id = ${Number(escuela_id)}
+                )`)
             ];
         }
 
