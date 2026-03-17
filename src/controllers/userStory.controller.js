@@ -6,18 +6,43 @@ const {
     Tarea, 
     EstadoTarea, 
     Usuario,
-    sequelize // Importamos sequelize para las transacciones
+    sequelize 
 } = require('../models');
+const { Op } = require('sequelize');
+
+/**
+ * Helper interno para verificar si un usuario pertenece al proyecto.
+ * Permite el paso si es Admin (rol 1), Dueño (docente_owner) o Integrante.
+ */
+const verificarPermisoProyecto = async (proyectoId, usuario) => {
+    if (Number(usuario.rol_id) === 1) return true; // Admin libre
+
+    const proyecto = await Proyecto.findByPk(proyectoId, {
+        include: [{ 
+            model: Usuario, 
+            as: 'integrantes', 
+            where: { id: usuario.id },
+            required: false 
+        }]
+    });
+
+    if (!proyecto) return false;
+    
+    const esOwner = proyecto.docente_owner_id === usuario.id;
+    const esMiembro = proyecto.integrantes && proyecto.integrantes.length > 0;
+    
+    return esOwner || esMiembro;
+};
 
 // --- CREAR USER STORY ---
 const crearUserStory = async (req, res) => {
     try {
-        // Agregamos fecha_entrega al destructuring
         const { proyecto_id, titulo, descripcion, condiciones, prioridad_id, estado_id, fecha_entrega } = req.body;
+        const usuarioLogueado = req.usuario;
 
-        const proyecto = await Proyecto.findByPk(proyecto_id);
-        if (!proyecto) {
-            return res.status(404).json({ mensaje: "Proyecto no encontrado" });
+        const tienePermiso = await verificarPermisoProyecto(proyecto_id, usuarioLogueado);
+        if (!tienePermiso) {
+            return res.status(403).json({ mensaje: "No tienes permiso para crear historias en este proyecto" });
         }
 
         const nuevaUS = await UserStory.create({
@@ -27,7 +52,7 @@ const crearUserStory = async (req, res) => {
             condiciones,
             prioridad_id,
             estado_id: estado_id || 1,
-            fecha_entrega // Nuevo campo persistido
+            fecha_entrega 
         });
 
         return res.status(201).json(nuevaUS);
@@ -37,11 +62,12 @@ const crearUserStory = async (req, res) => {
     }
 };
 
-
 // --- OBTENER UNA SOLA USER STORY POR ID ---
 const obtenerUserStoryPorId = async (req, res) => {
     try {
         const { id } = req.params;
+        const usuarioLogueado = req.usuario; // Obtenido por el middleware verificarToken
+
         const story = await UserStory.findByPk(id, {
             include: [
                 { model: PrioridadUS, as: 'prioridad_detalle' },
@@ -63,14 +89,29 @@ const obtenerUserStoryPorId = async (req, res) => {
             ]
         });
 
+        // 1. Validamos que la US exista
         if (!story) {
             return res.status(404).json({ mensaje: "User Story no encontrada" });
         }
 
+        // 2. SEGURIDAD: Validamos que el usuario tenga permiso sobre el proyecto de esta US
+        const tienePermiso = await verificarPermisoProyecto(story.proyecto_id, usuarioLogueado);
+        
+        if (!tienePermiso) {
+            return res.status(403).json({ 
+                mensaje: "Acceso denegado: No perteneces al proyecto de esta User Story." 
+            });
+        }
+
+        // 3. Si pasó los filtros, devolvemos la data
         return res.json(story);
+
     } catch (error) {
         console.error("Error al obtener User Story por ID:", error);
-        return res.status(500).json({ mensaje: "Error al obtener US", detalle: error.message });
+        return res.status(500).json({ 
+            mensaje: "Error interno al obtener la US", 
+            detalle: error.message 
+        });
     }
 };
 
@@ -94,7 +135,6 @@ const obtenerUserStoriesPorProyecto = async (req, res) => {
                     model: Tarea, 
                     as: 'tareas',
                     include: [
-                        // FIX: Agregamos 'apellido' aquí
                         { model: Usuario, as: 'responsable', attributes: ['id', 'nombre', 'apellido'] }, 
                         { model: EstadoTarea, as: 'estado_detalle', attributes: ['id', 'nombre'] }
                     ]
@@ -104,19 +144,18 @@ const obtenerUserStoriesPorProyecto = async (req, res) => {
         });
         return res.json(stories);
     } catch (error) {
-        console.error("DETALLE DEL ERROR 500:", error); 
+        console.error("Error al obtener US por proyecto:", error); 
         return res.status(500).json({ mensaje: "Error al obtener US", detalle: error.message });
     }
 };
 
-// --- ACTUALIZAR USER STORY (CON BLOQUEO Y ATOMICIDAD) ---
+// --- ACTUALIZAR USER STORY ---
 const actualizarUserStory = async (req, res) => {
-    // Iniciamos transacción para que el cambio de datos y dependencias sea atómico
     const t = await sequelize.transaction();
     
     try {
         const { id } = req.params;
-        // Agregamos fecha_entrega y dependenciasIds al body
+        const usuarioLogueado = req.usuario;
         const { titulo, descripcion, condiciones, prioridad_id, estado_id, fecha_entrega, dependenciasIds } = req.body;
 
         const us = await UserStory.findByPk(id);
@@ -125,7 +164,14 @@ const actualizarUserStory = async (req, res) => {
             return res.status(404).json({ mensaje: "User Story no encontrada" });
         }
 
-        // --- VALIDACIÓN DE ESTADO 4 (Mantenemos tu lógica) ---
+        // VALIDACIÓN DE MIEMBRO/ADMIN
+        const tienePermiso = await verificarPermisoProyecto(us.proyecto_id, usuarioLogueado);
+        if (!tienePermiso) {
+            await t.rollback();
+            return res.status(403).json({ mensaje: "No tienes permiso para editar historias de este proyecto" });
+        }
+
+        // --- VALIDACIÓN DE ESTADO 4 (No terminar si hay tareas pendientes) ---
         if (Number(estado_id) === 4) {
             const tareas = await Tarea.findAll({ where: { us_id: id } });
             const tareasPendientes = tareas.filter(t => Number(t.estado_id) !== 4);
@@ -139,7 +185,6 @@ const actualizarUserStory = async (req, res) => {
             }
         }
 
-        // --- ACTUALIZACIÓN DE DATOS ---
         await us.update({ 
             titulo, 
             descripcion, 
@@ -149,10 +194,7 @@ const actualizarUserStory = async (req, res) => {
             fecha_entrega 
         }, { transaction: t });
 
-        // --- GESTIÓN DE DEPENDENCIAS (N:M) ---
-        // dependenciasIds debe ser un array de IDs: [1, 4, 8]
         if (Array.isArray(dependenciasIds)) {
-            // setPredecesoras es un método mágico que crea Sequelize por el alias 'predecesoras' en index.js
             await us.setPredecesoras(dependenciasIds, { transaction: t });
         }
 
@@ -160,23 +202,29 @@ const actualizarUserStory = async (req, res) => {
         return res.json({ mensaje: "User Story actualizada correctamente", us });
 
     } catch (error) {
-        await t.rollback();
-        console.error("ERROR EN CONTROLADOR:", error);
+        if (t) await t.rollback();
+        console.error("Error al actualizar US:", error);
         return res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
     }
 };
 
+// --- ELIMINAR USER STORY ---
 const eliminarUserStory = async (req, res) => {
     try {
         const { id } = req.params;
-        // Primero borramos las dependencias en la tabla intermedia manualmente si no confias en ON DELETE CASCADE
-        // (Aunque Sequelize con a través de 'us_dependencias' debería manejarlo)
-        await Tarea.destroy({ where: { us_id: id } });
-        const resultado = await UserStory.destroy({ where: { id } });
+        const usuarioLogueado = req.usuario;
 
-        if (resultado === 0) {
-            return res.status(404).json({ mensaje: "No se encontró la User Story" });
+        const us = await UserStory.findByPk(id);
+        if (!us) return res.status(404).json({ mensaje: "User Story no encontrada" });
+
+        const tienePermiso = await verificarPermisoProyecto(us.proyecto_id, usuarioLogueado);
+        if (!tienePermiso) {
+            return res.status(403).json({ mensaje: "No tienes permiso para eliminar historias de este proyecto" });
         }
+
+        await Tarea.destroy({ where: { us_id: id } });
+        await us.destroy();
+
         return res.json({ mensaje: "User Story eliminada correctamente" });
     } catch (error) {
         console.error("❌ ERROR AL ELIMINAR US:", error);
@@ -188,6 +236,6 @@ module.exports = {
     crearUserStory,
     obtenerUserStoriesPorProyecto,
     actualizarUserStory,
-    eliminarUserStory ,
+    eliminarUserStory,
     obtenerUserStoryPorId
 };

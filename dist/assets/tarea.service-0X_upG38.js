@@ -1,0 +1,1 @@
+import{H as r}from"./index-SJhRblZ7.js";const s={getAll(){return r.get("/tareas")},registrarHoras(e,t){return r.patch(`/tareas/${e}/log-horas`,{horasNuevas:t})},update(e,t){return r.put(`/tareas/${e}`,t)},create(e){return r.post("/tareas",e)},delete(e){return r.delete(`/tareas/${e}`)}};export{s as t};

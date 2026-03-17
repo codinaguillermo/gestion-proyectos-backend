@@ -1,9 +1,7 @@
 const { Op } = require('sequelize'); 
 const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela, Entregable } = require('../models');
 
-/**
- * Configuración de include para integrantes.
- */
+// --- HELPER PARA CARGA DE INTEGRANTES ---
 const includeIntegrantesConCarga = { 
     model: Usuario, 
     as: 'integrantes', 
@@ -13,10 +11,11 @@ const includeIntegrantesConCarga = {
         { model: Rol, attributes: ['nombre'] },
         {
             model: Tarea,
-            as: 'Tareas',
+            // ⚠️ OJO ACÁ: Si en tu modelo la relación es 'tareas', cambialo a minúscula
+            as: 'Tareas', 
             attributes: ['id', 'prioridad_id', 'estado_id'],
             where: {
-                estado_id: { [Op.ne]: 4 } 
+                estado_id: { [Op.ne]: 4 } // Que no estén finalizadas/canceladas
             },
             required: false 
         }
@@ -24,7 +23,7 @@ const includeIntegrantesConCarga = {
     through: { attributes: [] } 
 };
 
-// 1. OBTENER UN PROYECTO POR ID
+// --- 1. OBTENER UN PROYECTO POR ID (PARA VISUALIZACIÓN Y EDICIÓN) ---
 const obtenerProyectoPorId = async (req, res) => {
     try {
         const { id } = req.params;
@@ -32,75 +31,47 @@ const obtenerProyectoPorId = async (req, res) => {
 
         const proyecto = await Proyecto.findByPk(id, {
             attributes: [
-                'id','estado_id', 'nombre', 'descripcion', 'docente_owner_id', 'escuela_id',
+                'id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id',
                 'objetivo', 'objetivoBloqueado', 
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2' 
+                'fecha_cierre_1', 'fecha_cierre_2', 'created_at'
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
-                { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
+                { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] },
                 { model: Entregable, as: 'entregables' },
-                includeIntegrantesConCarga 
+                // Usamos el helper con required: false para que NO rompa si el proyecto es nuevo
+                { ...includeIntegrantesConCarga, required: false }
             ]
         });
+
         if (!proyecto) return res.status(404).json({ mensaje: "Proyecto no encontrado" });
-        
-        const esAdmin = Number(usuarioLogueado.rol_id) === 1;
-        const esOwner = Number(proyecto.docente_owner_id) === Number(usuarioLogueado.id);
-        const esMiembro = proyecto.integrantes?.some(i => Number(i.id) === Number(usuarioLogueado.id));
 
-        if (!esAdmin && !esOwner && !esMiembro) {
-            return res.status(403).json({ mensaje: "Acceso denegado" });
+        const miId = Number(usuarioLogueado.id);
+        const miRol = Number(usuarioLogueado.rol_id);
+        
+        const esAdmin = miRol === 1;
+        const esOwner = Number(proyecto.docente_owner_id) === miId;
+        const esMiembro = proyecto.integrantes?.some(i => Number(i.id) === miId);
+
+        if (esAdmin || esOwner || esMiembro) {
+            return res.json(proyecto);
+        } else {
+            return res.status(403).json({ mensaje: "Acceso denegado a este proyecto." });
         }
-        return res.json(proyecto);
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ mensaje: "Error del servidor" });
+        console.error("ERROR EN obtenerProyectoPorId:", error);
+        return res.status(500).json({ mensaje: "Error del servidor", detalle: error.message });
     }
 };
 
-// 2. CREAR PROYECTO
-const crearProyecto = async (req, res) => {
-    try {
-        const { nombre, descripcion, escuela_id, fecha_cierre_1, fecha_cierre_2 } = req.body;
-        const usuarioId = req.usuario.id;
-        const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
-        
-        if (!estadoInicial) return res.status(500).json({ mensaje: "Falta configurar estados" });
-
-        const nuevoProyecto = await Proyecto.create({
-            nombre, 
-            descripcion, 
-            estado_id: estadoInicial.id, 
-            docente_owner_id: usuarioId, 
-            escuela_id: escuela_id || null,
-            fecha_cierre_1: fecha_cierre_1 || null, 
-            fecha_cierre_2: fecha_cierre_2 || null  
-        });
-
-        await nuevoProyecto.addIntegrante(usuarioId); 
-
-        const proyectoConRelacion = await Proyecto.findByPk(nuevoProyecto.id, {
-            include: [
-                { model: EstadoProyecto, attributes: ['id', 'nombre'] },
-                { model: Escuela, attributes: ['nombre_largo', 'nombre_corto'] },
-                { model: Entregable, as: 'entregables' },
-                includeIntegrantesConCarga 
-            ]
-        });
-        return res.status(201).json(proyectoConRelacion);
-    } catch (error) {
-        return res.status(500).json({ mensaje: "Error al crear proyecto" });
-    }
-};
-
-// 3. OBTENER LISTADO DE PROYECTOS
+// --- 2. LISTADO DE PROYECTOS ---
 const obtenerProyectos = async (req, res) => {
     try {
         const { id, rol_id } = req.usuario;
         let condicion = {};
+
         if (Number(rol_id) !== 1) {
             const participaciones = await Proyecto.findAll({
                 attributes: ['id'],
@@ -110,73 +81,89 @@ const obtenerProyectos = async (req, res) => {
                 raw: true
             });
             const ids = participaciones.map(p => p.id);
-            condicion = { [Op.or]: [{ docente_owner_id: id }, { id: { [Op.in]: ids } }] };
+            
+            condicion = { 
+                [Op.or]: [
+                    { docente_owner_id: id }, 
+                    { id: { [Op.in]: ids } }
+                ] 
+            };
         }
         
         const proyectos = await Proyecto.findAll({
             where: condicion,
             attributes: [
                 'id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at',
-                'objetivo', 'objetivoBloqueado', 
-                'alcancePrototipo', 'alcancePrototipoBloqueado',
-                'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2' 
+                'objetivo', 'objetivoBloqueado', 'alcancePrototipo', 'alcancePrototipoBloqueado',
+                'alcanceFinal', 'alcanceFinalBloqueado', 'fecha_cierre_1', 'fecha_cierre_2' 
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] }, 
                 { model: UserStory, as: 'userStories' },
                 { model: Entregable, as: 'entregables' },
-                includeIntegrantesConCarga 
+                { ...includeIntegrantesConCarga, required: false } 
             ],
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            subQuery: false 
         });
         return res.json(proyectos);
     } catch (error) {
-        return res.status(500).json({ mensaje: "Error" });
+        return res.status(500).json({ mensaje: "Error al obtener proyectos" });
     }
 };
 
-// 4. ACTUALIZAR PROYECTO (EL CORAZÓN DEL PROBLEMA)
+// --- 3. CREAR PROYECTO ---
+const crearProyecto = async (req, res) => {
+    try {
+        const { nombre, descripcion, escuela_id, fecha_cierre_1, fecha_cierre_2 } = req.body;
+        const usuarioId = req.usuario.id;
+        const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
+        
+        const nuevoProyecto = await Proyecto.create({
+            nombre, descripcion, estado_id: estadoInicial.id, docente_owner_id: usuarioId, 
+            escuela_id: escuela_id || null, fecha_cierre_1: fecha_cierre_1 || null, fecha_cierre_2: fecha_cierre_2 || null  
+        });
+        
+        await nuevoProyecto.addIntegrante(usuarioId);
+        
+        const proyectoConRelacion = await Proyecto.findByPk(nuevoProyecto.id, {
+            include: [
+                { model: EstadoProyecto, attributes: ['id', 'nombre'] },
+                { model: Escuela, attributes: ['nombre_largo', 'nombre_corto'] },
+                { model: Entregable, as: 'entregables' },
+                { ...includeIntegrantesConCarga, required: false } 
+            ]
+        });
+        return res.status(201).json(proyectoConRelacion);
+    } catch (error) {
+        return res.status(500).json({ mensaje: "Error al crear proyecto" });
+    }
+};
+
+// --- 4. ACTUALIZAR PROYECTO ---
 const actualizarProyecto = async (req, res) => {
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
         const usuarioLogueado = req.usuario; 
         const esDocente = Number(usuarioLogueado.rol_id) === 1 || Number(usuarioLogueado.rol_id) === 2;
-
         const { entregables, usuariosIds, ...datos } = req.body;
 
-        // 1. Preparamos el objeto de actualización basado en lo que mandó el Front
         const camposParaActualizar = {
-            nombre: datos.nombre,
-            descripcion: datos.descripcion,
+            nombre: datos.nombre, descripcion: datos.descripcion,
             estado_id: datos.estado_id ? Number(datos.estado_id) : undefined,
             fecha_cierre_1: datos.fecha_cierre_1 === "" ? null : datos.fecha_cierre_1,
             fecha_cierre_2: datos.fecha_cierre_2 === "" ? null : datos.fecha_cierre_2,
-            objetivo: datos.objetivo,
-            alcancePrototipo: datos.alcancePrototipo,
-            alcanceFinal: datos.alcanceFinal
+            objetivo: datos.objetivo, alcancePrototipo: datos.alcancePrototipo, alcanceFinal: datos.alcanceFinal,
+            objetivoBloqueado: esDocente ? datos.objetivoBloqueado : undefined,
+            alcancePrototipoBloqueado: esDocente ? datos.alcancePrototipoBloqueado : undefined,
+            alcanceFinalBloqueado: esDocente ? datos.alcanceFinalBloqueado : undefined
         };
 
-        // 2. Si es docente, actualizamos también los candados
-        if (esDocente) {
-            camposParaActualizar.objetivoBloqueado = datos.objetivoBloqueado;
-            camposParaActualizar.alcancePrototipoBloqueado = datos.alcancePrototipoBloqueado;
-            camposParaActualizar.alcanceFinalBloqueado = datos.alcanceFinalBloqueado;
-        }
+        await Proyecto.update(camposParaActualizar, { where: { id }, transaction: t });
 
-        // 3. UPDATE DIRECTO (Esto genera un SQL UPDATE proyectos SET... WHERE id = X)
-        // Es la forma más agresiva y segura de persistir.
-        await Proyecto.update(camposParaActualizar, { 
-            where: { id },
-            transaction: t 
-        });
-
-        // 4. GESTIÓN DE MIEMBROS Y ENTREGABLES (Esto lo dejamos igual porque funciona)
-        const proyectoInstancia = await Proyecto.findByPk(id, {
-            include: [{ model: Usuario, as: 'integrantes' }]
-        });
+        const proyectoInstancia = await Proyecto.findByPk(id, { include: [{ model: Usuario, as: 'integrantes' }] });
 
         if (usuariosIds && (esDocente || proyectoInstancia.integrantes?.some(i => i.id === usuarioLogueado.id))) {
             await proyectoInstancia.setIntegrantes(usuariosIds, { transaction: t });
@@ -193,29 +180,23 @@ const actualizarProyecto = async (req, res) => {
                 }
             }
         }
-
         await t.commit();
-        console.log("¡COMMIT EXITOSO PARA PROYECTO!", id);
-
+        
         const proyectoActualizado = await Proyecto.findByPk(id, {
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] },
                 { model: Entregable, as: 'entregables' },
-                includeIntegrantesConCarga 
+                { ...includeIntegrantesConCarga, required: false } 
             ]
         });
-
         return res.json({ mensaje: "Proyecto actualizado con éxito", proyecto: proyectoActualizado });
-
     } catch (error) {
         if (t) await t.rollback();
-        console.error("ERROR EN UPDATE DIRECTO:", error);
         return res.status(500).json({ mensaje: "Error al actualizar" });
     }
 };
 
-// 5. ELIMINAR PROYECTO
 const eliminarProyecto = async (req, res) => {
     try {
         const { id } = req.params;

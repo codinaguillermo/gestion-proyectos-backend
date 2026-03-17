@@ -1,4 +1,4 @@
-const { Usuario, Rol, Escuela,Especialidad, sequelize } = require('../models');
+const { Usuario, Rol, Escuela,Especialidad, Proyecto, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -163,6 +163,44 @@ const obtenerUsuarioPorId = async (req, res) => {
     }
 };
 
+const obtenerListadoProyectosUsuario = async (req, res) => {
+    res.set('Cache-Control', 'no-store'); 
+    
+    console.log("-----------------------------------------");
+    console.log("PETICIÓN RECIBIDA PARA ID:", req.params.id);
+    try {
+        const { id } = req.params;
+
+        const proyectos = await Proyecto.findAll({
+            include: [{
+                model: Usuario,
+                as: 'integrantes', 
+                where: { id: id }, 
+                attributes: [],    
+                through: { attributes: [] } 
+            }, {
+                model: Escuela,
+                as: 'escuela', // Forzamos el alias para asegurar el mapeo
+                attributes: ['nombre_corto']
+            }]
+        });
+
+        // Mapeo corregido: usamos el alias 'escuela' definido arriba
+        const respuesta = proyectos.map(p => ({
+            id: p.id,
+            nombre: p.nombre,
+            // Si el include funcionó, p.escuela DEBE existir.
+            escuela: p.escuela ? p.escuela.nombre_corto : 'Error de asociación'
+        }));
+
+        console.log(`QA - Perfil ID: ${id} | Proyectos encontrados:`, respuesta.length);
+        return res.json(respuesta);
+    } catch (error) {
+        console.error("❌ ERROR:", error);
+        return res.status(500).json({ mensaje: "Error al obtener proyectos" });
+    }
+};
+
 /**
  * Propósito: Listar usuarios con filtros avanzados de búsqueda y pertenencia a escuela.
  * Quién la llama: Invocada por GET /api/usuarios desde usuario.routes.js.
@@ -233,5 +271,6 @@ module.exports = {
     crearUsuario, 
     listarUsuarios, 
     actualizarUsuario, 
-    obtenerUsuarioPorId 
+    obtenerUsuarioPorId ,
+    obtenerListadoProyectosUsuario
 };

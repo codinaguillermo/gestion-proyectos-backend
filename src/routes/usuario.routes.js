@@ -5,23 +5,28 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 const upload = require('../middlewares/upload.middleware');
 
 /**
- * Propósito: Definir los puntos de entrada (endpoints) para la gestión de usuarios y perfiles.
- * Quién la llama: El servidor principal (app.js) mediante app.use('/api/usuarios', ...).
- * Retorna: Router de Express con las rutas configuradas.
+ * IMPORTANTE: El orden de las rutas es jerárquico. 
  */
 
-// 1. Crear usuario - CON SOPORTE PARA FORMDATA / AVATAR
+// 1. Crear usuario
 router.post('/', upload.single('avatar'), usuarioController.crearUsuario);
 
-// 2. Listar usuarios (Requiere token, incluye filtros de búsqueda en el controlador)
+// 2. Listar usuarios
 router.get('/', verificarToken, usuarioController.listarUsuarios);
+
+// --- RUTAS ESPECÍFICAS (ARRIBA) ---
+
+/**
+ * Corregido: Se cambió obtenerListadoProyectosAlumno por obtenerListadoProyectosUsuario
+ */
+router.get('/:id/proyectos-asignados', verificarToken, usuarioController.obtenerListadoProyectosUsuario);
+
+// --- RUTAS GENÉRICAS (ABAJO) ---
 
 // 3. Obtener un usuario específico por su ID
 router.get('/:id', verificarToken, usuarioController.obtenerUsuarioPorId);
 
-// 4. Actualizar usuario (Ruta unificada)
-// Procesa tanto datos de texto como el archivo 'avatar' si viene en la petición.
-// Alimenta a: usuarioController.actualizarUsuario
+// 4. Actualizar usuario
 router.put('/:id', verificarToken, upload.single('avatar'), usuarioController.actualizarUsuario);
 
 module.exports = router;
