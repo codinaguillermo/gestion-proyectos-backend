@@ -177,16 +177,34 @@ const eliminarTarea = async (req, res) => {
 };
 
 // --- 7. MAESTRAS (GET /api/tareas/config/maestras) ---
+/**
+ * Propósito: Proveer tablas maestras para la configuración de tareas y proyectos.
+ * Quién la llama: config.service.js -> getTablasMaestras()
+ * Retorna: JSON con prioridades, estados de tarea, tipos y estados de proyecto.
+ */
 const obtenerTablasMaestras = async (req, res) => {
     try {
-        const [prioridades, estados, tipos] = await Promise.all([
+        // Corregido: Ahora desestructuramos las 4 promesas correctamente
+        const [prioridades, estados, tipos, estadosProyecto] = await Promise.all([
             Prioridad.findAll({ order: [['peso', 'ASC']] }),
             EstadoTarea.findAll(),
-            TipoTarea.findAll()
+            TipoTarea.findAll(),
+            EstadoProyecto.findAll() 
         ]);
-        return res.json({ prioridades, estados, tipos });
+
+        // Retornamos el objeto con las 4 propiedades para que el frontend las encuentre
+        return res.json({ 
+            prioridades, 
+            estados, 
+            tipos, 
+            estadosProyecto 
+        });
     } catch (error) {
-        return res.status(500).json({ mensaje: "Error en maestras" });
+        console.error("Error en obtenerTablasMaestras:", error);
+        return res.status(500).json({ 
+            mensaje: "Error al obtener tablas maestras",
+            detalle: error.message 
+        });
     }
 };
 
