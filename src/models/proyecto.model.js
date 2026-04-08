@@ -71,7 +71,17 @@ const Proyecto = sequelize.define('proyecto', {
   fecha_cierre_2: {
     type: DataTypes.DATEONLY,
     allowNull: true
-  }
+  },
+  viable: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'viable'
+  },
+  documentoViabilidadLink: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'documento_viabilidad_link'
+  },
 
 }, {
   tableName: 'proyectos',

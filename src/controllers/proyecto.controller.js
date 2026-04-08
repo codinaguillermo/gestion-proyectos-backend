@@ -11,7 +11,6 @@ const includeIntegrantesConCarga = {
         { model: Rol, attributes: ['nombre'] },
         {
             model: Tarea,
-            // ⚠️ OJO ACÁ: Si en tu modelo la relación es 'tareas', cambialo a minúscula
             as: 'Tareas', 
             attributes: ['id', 'prioridad_id', 'estado_id'],
             where: {
@@ -24,6 +23,11 @@ const includeIntegrantesConCarga = {
 };
 
 // --- 1. OBTENER UN PROYECTO POR ID (PARA VISUALIZACIÓN Y EDICIÓN) ---
+/**
+ * Obtiene un proyecto específico incluyendo su viabilidad y documentación de respaldo.
+ * Alimenta a: ProyectoConfigView.vue y DetalleProyecto
+ * Retorna: Objeto Proyecto completo con relaciones
+ */
 const obtenerProyectoPorId = async (req, res) => {
     try {
         const { id } = req.params;
@@ -35,13 +39,13 @@ const obtenerProyectoPorId = async (req, res) => {
                 'objetivo', 'objetivoBloqueado', 
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
-                'fecha_cierre_1', 'fecha_cierre_2', 'created_at'
+                'fecha_cierre_1', 'fecha_cierre_2', 'created_at',
+                'viable', 'documentoViabilidadLink' // Campos de viabilidad agregados
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
                 { model: Escuela, attributes: ['id', 'nombre_largo', 'nombre_corto'] },
                 { model: Entregable, as: 'entregables' },
-                // Usamos el helper con required: false para que NO rompa si el proyecto es nuevo
                 { ...includeIntegrantesConCarga, required: false }
             ]
         });
@@ -67,6 +71,11 @@ const obtenerProyectoPorId = async (req, res) => {
 };
 
 // --- 2. LISTADO DE PROYECTOS ---
+/**
+ * Lista proyectos según permisos del usuario, incluyendo el estado de viabilidad para el semáforo del Dashboard.
+ * Alimenta a: Dashboard.vue
+ * Retorna: Array de objetos Proyecto
+ */
 const obtenerProyectos = async (req, res) => {
     try {
         const { id, rol_id } = req.usuario;
@@ -95,7 +104,8 @@ const obtenerProyectos = async (req, res) => {
             attributes: [
                 'id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at',
                 'objetivo', 'objetivoBloqueado', 'alcancePrototipo', 'alcancePrototipoBloqueado',
-                'alcanceFinal', 'alcanceFinalBloqueado', 'fecha_cierre_1', 'fecha_cierre_2' 
+                'alcanceFinal', 'alcanceFinalBloqueado', 'fecha_cierre_1', 'fecha_cierre_2',
+                'viable', 'documentoViabilidadLink' // Campos de viabilidad agregados
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
@@ -114,6 +124,11 @@ const obtenerProyectos = async (req, res) => {
 };
 
 // --- 3. CREAR PROYECTO ---
+/**
+ * Crea un nuevo proyecto inicializando los campos de viabilidad en false.
+ * Alimenta a: Dashboard.vue (Modal Nuevo Proyecto)
+ * Retorna: Objeto Proyecto creado
+ */
 const crearProyecto = async (req, res) => {
     try {
         const { nombre, descripcion, escuela_id, fecha_cierre_1, fecha_cierre_2 } = req.body;
@@ -121,8 +136,14 @@ const crearProyecto = async (req, res) => {
         const estadoInicial = await EstadoProyecto.findOne({ order: [['id', 'ASC']] });
         
         const nuevoProyecto = await Proyecto.create({
-            nombre, descripcion, estado_id: estadoInicial.id, docente_owner_id: usuarioId, 
-            escuela_id: escuela_id || null, fecha_cierre_1: fecha_cierre_1 || null, fecha_cierre_2: fecha_cierre_2 || null  
+            nombre, 
+            descripcion, 
+            estado_id: estadoInicial.id, 
+            docente_owner_id: usuarioId, 
+            escuela_id: escuela_id || null, 
+            fecha_cierre_1: fecha_cierre_1 || null, 
+            fecha_cierre_2: fecha_cierre_2 || null,
+            viable: false // Inicialización explícita
         });
         
         await nuevoProyecto.addIntegrante(usuarioId);
@@ -142,6 +163,11 @@ const crearProyecto = async (req, res) => {
 };
 
 // --- 4. ACTUALIZAR PROYECTO ---
+/**
+ * Actualiza datos del proyecto, permitiendo a docentes validar la viabilidad.
+ * Alimenta a: ProyectoConfigView.vue
+ * Retorna: Objeto con mensaje de éxito y el proyecto actualizado
+ */
 const actualizarProyecto = async (req, res) => {
     const t = await sequelize.transaction();
     try {
@@ -151,14 +177,20 @@ const actualizarProyecto = async (req, res) => {
         const { entregables, usuariosIds, ...datos } = req.body;
 
         const camposParaActualizar = {
-            nombre: datos.nombre, descripcion: datos.descripcion,
+            nombre: datos.nombre, 
+            descripcion: datos.descripcion,
             estado_id: datos.estado_id ? Number(datos.estado_id) : undefined,
             fecha_cierre_1: datos.fecha_cierre_1 === "" ? null : datos.fecha_cierre_1,
             fecha_cierre_2: datos.fecha_cierre_2 === "" ? null : datos.fecha_cierre_2,
-            objetivo: datos.objetivo, alcancePrototipo: datos.alcancePrototipo, alcanceFinal: datos.alcanceFinal,
+            objetivo: datos.objetivo, 
+            alcancePrototipo: datos.alcancePrototipo, 
+            alcanceFinal: datos.alcanceFinal,
+            // Solo docentes pueden modificar estados de bloqueo y viabilidad
             objetivoBloqueado: esDocente ? datos.objetivoBloqueado : undefined,
             alcancePrototipoBloqueado: esDocente ? datos.alcancePrototipoBloqueado : undefined,
-            alcanceFinalBloqueado: esDocente ? datos.alcanceFinalBloqueado : undefined
+            alcanceFinalBloqueado: esDocente ? datos.alcanceFinalBloqueado : undefined,
+            viable: esDocente ? datos.viable : undefined,
+            documentoViabilidadLink: datos.documentoViabilidadLink
         };
 
         await Proyecto.update(camposParaActualizar, { where: { id }, transaction: t });
@@ -193,6 +225,7 @@ const actualizarProyecto = async (req, res) => {
         return res.json({ mensaje: "Proyecto actualizado con éxito", proyecto: proyectoActualizado });
     } catch (error) {
         if (t) await t.rollback();
+        console.error("ERROR EN actualizarProyecto:", error);
         return res.status(500).json({ mensaje: "Error al actualizar" });
     }
 };
