@@ -18,8 +18,9 @@ const EstadoUS = require('./estadoUS.model.js');
 const Prioridad = require('./prioridad.model')(sequelize, DataTypes);
 const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
+const Seguimiento = require('./seguimiento.model'); // Importar el nuevo
 
-// --- NUEVO v1.2.0: Sugerencias ---
+// --- NUEVO v1.2.0: Sugerencias para mejoras de GEPRES ---
 // Lo cargamos usando el mismo patrón que Prioridad o EstadoTarea
 const Sugerencia = require("./sugerencia.model.js")(sequelize, DataTypes);
 
@@ -133,6 +134,20 @@ Tarea.belongsToMany(Tarea, {
 });
 
 
+// --- RELACIONES DE SEGUIMIENTO ---
+
+// Un seguimiento pertenece a un proyecto
+Seguimiento.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
+Proyecto.hasMany(Seguimiento, { foreignKey: 'proyecto_id', as: 'seguimientos' });
+
+// Un seguimiento evalúa a un Alumno (Usuario)
+Seguimiento.belongsTo(Usuario, { foreignKey: 'alumno_id', as: 'alumno' });
+Usuario.hasMany(Seguimiento, { foreignKey: 'alumno_id', as: 'seguimientosRecibidos' });
+
+// Un seguimiento es creado por un Docente (Usuario)
+Seguimiento.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
+Usuario.hasMany(Seguimiento, { foreignKey: 'docente_id', as: 'seguimientosRealizados' });
+
 module.exports = {
     sequelize,
     Usuario,
@@ -149,5 +164,6 @@ module.exports = {
     Escuela,
     Especialidad,
     Entregable,
-    Sugerencia // Exportamos el nuevo modelo
+    Sugerencia,
+    Seguimiento
 };
