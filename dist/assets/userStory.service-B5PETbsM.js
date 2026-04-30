@@ -1,1 +1,0 @@
-import{H as r}from"./index-h_kql8gE.js";const o={getByProyecto(e){return r.get(`/user-stories/proyecto/${e}`)},create(e){return r.post("/user-stories",e)},delete(e){return r.delete(`/user-stories/${e}`)},update(e,t){return r.put(`/user-stories/${e}`,t)},getById:async e=>await r.get(`/user-stories/${e}`)};export{o as u};

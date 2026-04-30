@@ -1,1 +1,0 @@
-import{H as r}from"./index-h_kql8gE.js";const t={async getTablasMaestras(){try{const[a,e]=await Promise.all([r.get("/tareas/config/maestras"),r.get("/escuelas")]);return{...a.data,escuelas:e.data.data||e.data}}catch(a){throw console.error("Error en config.service unificando maestras:",a),a}}};export{t as c};
