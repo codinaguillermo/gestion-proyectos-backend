@@ -183,11 +183,11 @@ const actualizarProyecto = async (req, res) => {
             fecha_cierre_1: datos.fecha_cierre_1 === "" ? null : datos.fecha_cierre_1,
             fecha_cierre_2: datos.fecha_cierre_2 === "" ? null : datos.fecha_cierre_2,
             objetivo: datos.objetivo, 
-            alcancePrototipo: datos.alcancePrototipo, 
-            alcanceFinal: datos.alcanceFinal,
-            // Solo docentes pueden modificar estados de bloqueo y viabilidad
+            // Mantenemos alcanceFinal y neutralizamos alcancePrototipo
+            alcanceFinal: datos.alcanceFinal,            
+            
+            // Solo docentes pueden modificar estados de bloqueo
             objetivoBloqueado: esDocente ? datos.objetivoBloqueado : undefined,
-            alcancePrototipoBloqueado: esDocente ? datos.alcancePrototipoBloqueado : undefined,
             alcanceFinalBloqueado: esDocente ? datos.alcanceFinalBloqueado : undefined,
             viable: esDocente ? datos.viable : undefined,
             documentoViabilidadLink: datos.documentoViabilidadLink
