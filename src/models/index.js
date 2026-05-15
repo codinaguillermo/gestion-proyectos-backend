@@ -18,7 +18,8 @@ const EstadoUS = require('./estadoUS.model.js');
 const Prioridad = require('./prioridad.model')(sequelize, DataTypes);
 const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
-const Seguimiento = require('./seguimiento.model'); // Importar el nuevo
+const Seguimiento = require('./seguimiento.model'); 
+const NotaDocente = require("./notaDocente.model.js")(sequelize, DataTypes);
 
 // --- NUEVO v1.2.0: Sugerencias para mejoras de GEPRES ---
 // Lo cargamos usando el mismo patrón que Prioridad o EstadoTarea
@@ -109,6 +110,13 @@ Tarea.belongsTo(TipoTarea, { foreignKey: 'tipo_id', as: 'tipo_detalle' });
 Proyecto.belongsTo(Escuela, { foreignKey: 'escuela_id' });
 Escuela.hasMany(Proyecto, { foreignKey: 'escuela_id' });
 
+
+
+NotaDocente.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
+NotaDocente.belongsTo(Usuario, { foreignKey: 'creador_id', as: 'creador' });
+NotaDocente.belongsTo(Usuario, { foreignKey: 'destino_id', as: 'destinatario' });
+
+
 // --- DEPENDENCIAS USER STORY (N:M Auto-referencial) ---
 UserStory.belongsToMany(UserStory, { 
   through: 'us_dependencias', 
@@ -165,5 +173,6 @@ module.exports = {
     Especialidad,
     Entregable,
     Sugerencia,
-    Seguimiento
+    Seguimiento,
+    NotaDocente,
 };
