@@ -2,6 +2,12 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 const bcrypt = require('bcrypt');
 
+/**
+ * usuario.model.js
+ * Propósito: Definir la estructura de la entidad de usuarios en la base de datos (con soporte para borrado lógico y hashing de contraseñas).
+ * Alimentado por: Sequelize ORM y cargado en el inicio de la app / relaciones del backend.
+ * Datos que retorna: Instancia del modelo Sequelize 'usuario'.
+ */
 const Usuario = sequelize.define('usuario', {
   nombre: { type: DataTypes.STRING, allowNull: false },
   apellido: { type: DataTypes.STRING, allowNull: false },
@@ -20,7 +26,14 @@ const Usuario = sequelize.define('usuario', {
   curso: { type: DataTypes.STRING },
   division: { type: DataTypes.STRING },
   telefono: { type: DataTypes.STRING },
-  activo: { type: DataTypes.BOOLEAN, defaultValue: true }
+  activo: { type: DataTypes.BOOLEAN, defaultValue: true },
+  
+  // NUEVO CAMPO PARA EL CONTADOR DE BURBUJA ESTILO FACEBOOK
+  mensajes_sin_leer: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false, 
+    defaultValue: 0 
+  }
 }, 
 {
   tableName: 'usuarios',

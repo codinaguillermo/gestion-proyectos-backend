@@ -3,8 +3,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 /**
- * Propósito: Registrar un nuevo usuario.
- * Nota: Se agrega el campo avatar al objeto de respuesta por consistencia.
+ * Propósito: Registrar un nuevo usuario en la plataforma.
+ * Quién la llama: Invocada por POST /api/auth/registro desde las rutas correspondientes.
+ * Qué datos retorna: Objeto JSON con el token de sesión (si aplicara) y los datos públicos estructurados del usuario (incluyendo avatar y mensajes sin leer).
  */
 const registro = async (req, res) => {
     try {
@@ -33,19 +34,23 @@ const registro = async (req, res) => {
                 nombre: nuevoUsuario.nombre,
                 email: nuevoUsuario.email,
                 rol_id: nuevoUsuario.rol_id,
-                avatar: nuevoUsuario.avatar // <--- Ahora se envía (aunque sea null al inicio)
+                avatar: nuevoUsuario.avatar,
+                // NUEVO: Se anexa para consistencia del estado en el alta directa
+                mensajes_sin_leer: nuevoUsuario.mensajes_sin_leer 
             }
         });
 
     } catch (error) {
+        if (t) await t.rollback();
         console.error("Error en registro:", error);
         return res.status(500).json({ error: 'Error al registrar usuario' });
     }
 };
 
 /**
- * Propósito: Autenticar usuario y generar token JWT.
- * CORRECCIÓN: Se agrega 'avatar' al objeto 'usuario' enviado al frontend.
+ * Propósito: Autenticar las credenciales del usuario, generar el token JWT firmado y proveer los datos de sesión.
+ * Quién la llama: Invocada por POST /api/auth/login desde el formulario de acceso del Frontend.
+ * Qué datos retorna: Objeto JSON con el mensaje de éxito, el string del token JWT y el sub-objeto 'usuario' con los datos requeridos por Pinia.
  */
 const login = async (req, res) => {
     try {
@@ -84,7 +89,9 @@ const login = async (req, res) => {
                 id: usuario.id,
                 nombre: usuario.nombre,
                 rol_id: usuario.rol_id,
-                avatar: usuario.avatar // <--- ¡LA PIEZA FALTANTE!
+                avatar: usuario.avatar,
+                // NUEVO: ¡LA SEGUNDA PIEZA FALTANTE! Ahora Pinia recibe el contador real del disco
+                mensajes_sin_leer: usuario.mensajes_sin_leer 
             }
         });
 

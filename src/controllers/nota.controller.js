@@ -3,13 +3,14 @@ const { Op } = require('sequelize');
 
 /**
  * Controlador para la gestión de mensajería interna entre docentes.
- * Versión: 2.4.0
+ * Versión: 2.5.0
  */
 const notaController = {
 
     /**
      * Crea una nueva nota/recordatorio.
      * Valida que el destino sea el mismo creador o un docente del mismo proyecto.
+     * Incrementa el contador de mensajes sin leer en la tabla de usuarios.
      */
     crearNota: async (req, res) => {
         try {
@@ -35,6 +36,7 @@ const notaController = {
                 return res.status(403).json({ mensaje: "Solo puedes enviar notas a ti mismo o a otros docentes del proyecto." });
             }
 
+            // 3. Crear el registro físico de la nota docente
             const nuevaNota = await NotaDocente.create({
                 titulo,
                 descripcion,
@@ -43,6 +45,12 @@ const notaController = {
                 creador_id,
                 destino_id,
                 estado: 'PENDIENTE'
+            });
+
+            // 4. NUEVO: Incrementar la burbuja de mensajes sin leer del destinatario
+            await Usuario.increment('mensajes_sin_leer', {
+                by: 1,
+                where: { id: Number(destino_id) }
             });
 
             return res.status(201).json({ success: true, data: nuevaNota });

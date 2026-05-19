@@ -1,4 +1,4 @@
-const { Usuario, Rol, Escuela,Especialidad, Proyecto, sequelize } = require('../models');
+const { Usuario, Rol, Escuela, Especialidad, Proyecto, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -163,6 +163,11 @@ const obtenerUsuarioPorId = async (req, res) => {
     }
 };
 
+/**
+ * Propósito: Obtener el listado de proyectos asignados a un usuario y mapear su escuela asociada.
+ * Quién la llama: Invocada por GET /api/usuarios/:id/proyectos-asignados desde usuario.routes.js.
+ * Retorna: Array de objetos con datos abreviados de los proyectos.
+ */
 const obtenerListadoProyectosUsuario = async (req, res) => {
     res.set('Cache-Control', 'no-store'); 
     
@@ -218,14 +223,18 @@ const listarUsuarios = async (req, res) => {
                 { nombre: { [Op.substring]: searchTerms } },
                 { apellido: { [Op.substring]: searchTerms } },
                 { email: { [Op.substring]: searchTerms } },
-                sequelize.where(
-                    sequelize.fn('concat', sequelize.col('usuario.nombre'), ' ', sequelize.col('usuario.apellido')),
-                    { [Op.like]: `%${searchTerms}%` }
-                ),
-                sequelize.where(
-                    sequelize.fn('concat', sequelize.col('usuario.apellido'), ' ', sequelize.col('usuario.nombre')),
-                    { [Op.like]: `%${searchTerms}%` }
-                )
+                {
+                    [Op.and]: sequelize.where(
+                        sequelize.fn('concat', sequelize.col('usuario.nombre'), ' ', sequelize.col('usuario.apellido')),
+                        { [Op.like]: `%${searchTerms}%` }
+                    )
+                },
+                {
+                    [Op.and]: sequelize.where(
+                        sequelize.fn('concat', sequelize.col('usuario.apellido'), ' ', sequelize.col('usuario.nombre')),
+                        { [Op.like]: `%${searchTerms}%` }
+                    )
+                }
             ];
         }
 
@@ -267,10 +276,39 @@ const listarUsuarios = async (req, res) => {
     }
 };
 
+/**
+ * Propósito: Resetear a cero el contador de mensajes sin leer de un usuario específico.
+ * Alimenta a: Invocado por la ruta PUT /api/usuarios/reset-mensajes cuando el usuario entra al listado de mensajería.
+ * Datos retorna: Objeto JSON confirmando la actualización con success true.
+ */
+const resetearMensajesSinLeer = async (req, res) => {
+    try {
+        const usuarioId = req.usuario.id; // Extraído del token de sesión por el middleware
+
+        await Usuario.update(
+            { mensajes_sin_leer: 0 },
+            { where: { id: usuarioId } }
+        );
+
+        return res.status(200).json({
+            success: true,
+            mensaje: "Contador de mensajes reiniciado a cero."
+        });
+    } catch (error) {
+        console.error("Error en resetearMensajesSinLeer:", error);
+        return res.status(500).json({
+            success: false,
+            mensaje: "Error al actualizar el contador de mensajes."
+        });
+    }
+};
+
+// CORREGIDO: Exportamos explícitamente el nuevo método para que la ruta de Express deje de recibir undefined
 module.exports = { 
     crearUsuario, 
     listarUsuarios, 
     actualizarUsuario, 
-    obtenerUsuarioPorId ,
-    obtenerListadoProyectosUsuario
+    obtenerUsuarioPorId,
+    obtenerListadoProyectosUsuario,
+    resetearMensajesSinLeer
 };

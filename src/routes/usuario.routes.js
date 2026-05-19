@@ -5,7 +5,10 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 const upload = require('../middlewares/upload.middleware');
 
 /**
- * IMPORTANTE: El orden de las rutas es jerárquico. 
+ * usuario.routes.js
+ * Propósito: Definir las rutas del API para la entidad de usuarios, manteniendo un orden jerárquico estricto.
+ * Alimentado por: Las solicitudes HTTP enviadas desde el Frontend (servicios de usuario).
+ * Datos que retorna: Despacha la ejecución hacia el método correspondiente en usuario.controller.js.
  */
 
 // 1. Crear usuario
@@ -15,6 +18,9 @@ router.post('/', upload.single('avatar'), usuarioController.crearUsuario);
 router.get('/', verificarToken, usuarioController.listarUsuarios);
 
 // --- RUTAS ESPECÍFICAS (ARRIBA) ---
+
+// NUEVO: Setea a cero el contador de mensajes sin leer del usuario autenticado
+router.put('/reset-mensajes', verificarToken, usuarioController.resetearMensajesSinLeer);
 
 /**
  * Corregido: Se cambió obtenerListadoProyectosAlumno por obtenerListadoProyectosUsuario
@@ -28,5 +34,6 @@ router.get('/:id', verificarToken, usuarioController.obtenerUsuarioPorId);
 
 // 4. Actualizar usuario
 router.put('/:id', verificarToken, upload.single('avatar'), usuarioController.actualizarUsuario);
+
 
 module.exports = router;
