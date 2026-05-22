@@ -14,6 +14,12 @@ router.get('/roles', verificarToken, commonCtrl.listarRoles);
 
 // Para el combo de especialidades en el modal de alumnos
 router.get('/especialidades', commonCtrl.listarEspecialidades);
+
+// ============================================================================
+// --- RUTAS NUEVAS v2.6.0: ENDPOINTS MAESTROS DE EVALUACIÓN ------------------
+// ============================================================================
+router.get('/hitos-evaluacion', verificarToken, commonCtrl.listarHitosEvaluacion);
+
 router.use('/notas-docentes', notaRoutes);
 
 module.exports = router;

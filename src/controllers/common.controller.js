@@ -1,4 +1,4 @@
-const { PrioridadUS, EstadoUS, Escuela, Rol, Especialidad } = require('../models'); // <--- AGREGADO Especialidad
+const { PrioridadUS, EstadoUS, Escuela, Rol, Especialidad, HitoEvaluacion } = require('../models');
 
 // Función para Prioridades
 const getPrioridadesUS = async (req, res) => {
@@ -61,11 +61,35 @@ const listarEspecialidades = async (req, res) => {
     }
 };
 
+// ============================================================================
+// --- FUNCIONES NUEVAS v2.6.0: CONTROL DE HITOS INSTITUCIONALES --------------
+// ============================================================================
+
+/**
+ * Propósito: Recuperar el listado completo de hitos y conceptos de evaluación admisibles.
+ * Quién la alimenta: Invocada desde las rutas comunes para poblar selectores en las vistas de evaluación.
+ * Qué datos retorna: Array de objetos que contienen el 'id' y el 'nombre' del hito institucional.
+ */
+const listarHitosEvaluacion = async (req, res) => {
+    try {
+        const hitos = await HitoEvaluacion.findAll({
+            attributes: ['id', 'nombre'],
+            order: [['id', 'ASC']]
+        });
+        return res.json(hitos);
+    } catch (error) {
+        console.error("ERROR EN listarHitosEvaluacion:", error);
+        return res.status(500).json({ error: 'Error al obtener la lista de hitos de evaluación' });
+    }
+};
+
 // EXPORTACIÓN ÚNICA
 module.exports = { 
     getPrioridadesUS,
     getEstadosUS,
     listarEscuelas,
     listarRoles,
-    listarEspecialidades 
+    listarEspecialidades,
+    // EXPORTACIÓN v2.6.0: Habilitada para el ruteador común del ecosistema
+    listarHitosEvaluacion
 };

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize'); 
-const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela, Entregable } = require('../models');
+const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, Rol, Escuela, Entregable, HitoEvaluacion, CalificacionProyecto } = require('../models');
 
 // --- HELPER PARA CARGA DE INTEGRANTES ---
 const includeIntegrantesConCarga = { 
@@ -183,7 +183,6 @@ const actualizarProyecto = async (req, res) => {
             fecha_cierre_1: datos.fecha_cierre_1 === "" ? null : datos.fecha_cierre_1,
             fecha_cierre_2: datos.fecha_cierre_2 === "" ? null : datos.fecha_cierre_2,
             objetivo: datos.objetivo, 
-            // Mantenemos alcanceFinal y neutralizamos alcancePrototipo
             alcanceFinal: datos.alcanceFinal,            
             
             // Solo docentes pueden modificar estados de bloqueo
@@ -250,4 +249,89 @@ const eliminarProyecto = async (req, res) => {
     }
 };
 
-module.exports = { obtenerProyectoPorId, crearProyecto, obtenerProyectos, actualizarProyecto, eliminarProyecto };
+// ============================================================================
+// --- FUNCIONES NUEVAS v2.6.0: SEGUIMIENTO HISTÓRICO DE CALIFICACIONES -------
+// ============================================================================
+
+/**
+ * Propósito: Recuperar el historial cronológico de notas asentadas sobre un proyecto.
+ * Quién la alimenta: Invocada por las rutas operativas para listar las notas en el frontend.
+ * Qué datos retorna: Array de objetos CalificacionProyecto con los detalles del hito y del docente calificador.
+ */
+const obtenerCalificacionesProyecto = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const calificaciones = await CalificacionProyecto.findAll({
+            where: { proyecto_id: id },
+            attributes: ['id', 'proyecto_id', 'hito_id', 'usuario_id', 'nota', 'descripcion', 'fecha'],
+            include: [
+                { model: HitoEvaluacion, as: 'hito_detalle', attributes: ['id', 'nombre'] },
+                { model: Usuario, as: 'docente_calificador', attributes: ['id', 'nombre', 'apellido'] }
+            ],
+            order: [['fecha', 'DESC']]
+        });
+
+        return res.json(calificaciones);
+    } catch (error) {
+        console.error("ERROR EN obtenerCalificacionesProyecto:", error);
+        return res.status(500).json({ mensaje: "Error al obtener el historial de calificaciones" });
+    }
+};
+
+/**
+ * Propósito: Registrar de forma segura un nuevo hito de calificación académica para el proyecto.
+ * Quién la alimenta: Formulario de asignación de notas en la interfaz docente.
+ * Qué datos retorna: Objeto con mensaje de éxito y el registro de la calificación creada.
+ */
+const registrarCalificacionProyecto = async (req, res) => {
+    try {
+        const { id } = req.params; // proyecto_id
+        const { hito_id, nota, descripcion } = req.body;
+        const usuarioLogueado = req.usuario;
+
+        // Regla de negocio: Solo Directivos (1) o Docentes (2) asientan calificaciones
+        const miRol = Number(usuarioLogueado.rol_id);
+        if (miRol !== 1 && miRol !== 2) {
+            return res.status(403).json({ mensaje: "Operación rechazada. Solo el personal docente posee permisos de evaluación." });
+        }
+
+        // Validación explícita de rango académico (Sincronizado con el CHECK CONSTRAINT de MySQL)
+        const valorNota = parseFloat(nota);
+        if (isNaN(valorNota) || valorNota < 0.00 || valorNota > 10.00) {
+            return res.status(400).json({ mensaje: "La calificación cuantitativa debe comprenderse de forma estricta entre 0.00 y 10.00." });
+        }
+
+        const nuevaCalificacion = await CalificacionProyecto.create({
+            proyecto_id: Number(id),
+            hito_id: Number(hito_id),
+            usuario_id: Number(usuarioLogueado.id),
+            nota: valorNota,
+            descripcion: descripcion || null,
+            fecha: new Date()
+        });
+
+        const registroCompleto = await CalificacionProyecto.findByPk(nuevaCalificacion.id, {
+            include: [
+                { model: HitoEvaluacion, as: 'hito_detalle', attributes: ['id', 'nombre'] },
+                { model: Usuario, as: 'docente_calificador', attributes: ['id', 'nombre', 'apellido'] }
+            ]
+        });
+
+        return res.status(201).json({ mensaje: "Calificación académica asentada con éxito.", calificacion: registroCompleto });
+    } catch (error) {
+        console.error("ERROR EN registrarCalificacionProyecto:", error);
+        return res.status(500).json({ mensaje: "Error del servidor al registrar la calificación académica." });
+    }
+};
+
+module.exports = { 
+    obtenerProyectoPorId, 
+    crearProyecto, 
+    obtenerProyectos, 
+    actualizarProyecto, 
+    eliminarProyecto,
+    // EXPORTACIONES v2.6.0: Habilitadas para el enrutador operativo
+    obtenerCalificacionesProyecto,
+    registrarCalificacionProyecto
+};

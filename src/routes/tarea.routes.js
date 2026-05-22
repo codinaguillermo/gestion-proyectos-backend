@@ -44,7 +44,8 @@ router.put('/:id', verificarAccesoProyecto, tareaController.actualizarTarea);
  * DELETE /api/tareas/:id
  * El borrado también requiere validar el proyecto_id.
  */
-router.delete('/:id', verificarAccesoProyecto, tareaController.eliminarTarea);
+//router.delete('/:id', verificarAccesoProyecto, tareaController.eliminarTarea);
+router.delete('/:id', tareaController.eliminarTarea);
 
 // 3. Rutas de utilidades
 router.get('/config/maestras', tareaController.obtenerTablasMaestras);

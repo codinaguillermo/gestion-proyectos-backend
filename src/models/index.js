@@ -10,7 +10,11 @@ const EstadoProyecto = require('./estadoProyecto.model.js');
 const UserStory = require('./userStory.model.js'); 
 const Escuela = require('./escuela.model'); 
 const Especialidad = require('./especialidad.model');
-const Entregable = require('./entregable.model'); // NUEVO
+const Entregable = require('./entregable.model'); 
+
+// NUEVOS MODELOS v2.6.0: Entidades para el seguimiento de calificaciones académicas
+const HitoEvaluacion = require('./hitoEvaluacion.model');
+const CalificacionProyecto = require('./calificacionProyecto.model');
 
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
@@ -22,17 +26,14 @@ const Seguimiento = require('./seguimiento.model');
 const NotaDocente = require("./notaDocente.model.js")(sequelize, DataTypes);
 
 // --- NUEVO v1.2.0: Sugerencias para mejoras de GEPRES ---
-// Lo cargamos usando el mismo patrón que Prioridad o EstadoTarea
 const Sugerencia = require("./sugerencia.model.js")(sequelize, DataTypes);
 
 // --- RELACIONES SUGERENCIAS ---
-// Una sugerencia pertenece a un autor (Docente/Admin)
 Sugerencia.belongsTo(Usuario, {
   foreignKey: "usuario_id",
   as: "autor",
 });
 
-// Una sugerencia puede tener una respuesta de un admin
 Sugerencia.belongsTo(Usuario, {
   foreignKey: "admin_id",
   as: "admin_que_respondio",
@@ -89,7 +90,7 @@ Proyecto.belongsTo(Usuario, { foreignKey: 'docente_owner_id', as: 'owner' });
 Proyecto.hasMany(UserStory, { foreignKey: 'proyecto_id', as: 'userStories' });
 UserStory.belongsTo(Proyecto, { foreignKey: 'proyecto_id' });
 
-// --- RELACIÓN PROYECTO Y ENTREGABLES (NUEVO) ---
+// --- RELACIÓN PROYECTO Y ENTREGABLES ---
 Proyecto.hasMany(Entregable, { foreignKey: 'proyecto_id', as: 'entregables' });
 Entregable.belongsTo(Proyecto, { foreignKey: 'proyecto_id' });
 
@@ -110,12 +111,9 @@ Tarea.belongsTo(TipoTarea, { foreignKey: 'tipo_id', as: 'tipo_detalle' });
 Proyecto.belongsTo(Escuela, { foreignKey: 'escuela_id' });
 Escuela.hasMany(Proyecto, { foreignKey: 'escuela_id' });
 
-
-
 NotaDocente.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
 NotaDocente.belongsTo(Usuario, { foreignKey: 'creador_id', as: 'creador' });
 NotaDocente.belongsTo(Usuario, { foreignKey: 'destino_id', as: 'destinatario' });
-
 
 // --- DEPENDENCIAS USER STORY (N:M Auto-referencial) ---
 UserStory.belongsToMany(UserStory, { 
@@ -141,38 +139,66 @@ Tarea.belongsToMany(Tarea, {
   timestamps: false 
 });
 
-
 // --- RELACIONES DE SEGUIMIENTO ---
-
-// Un seguimiento pertenece a un proyecto
 Seguimiento.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
 Proyecto.hasMany(Seguimiento, { foreignKey: 'proyecto_id', as: 'seguimientos' });
 
-// Un seguimiento evalúa a un Alumno (Usuario)
 Seguimiento.belongsTo(Usuario, { foreignKey: 'alumno_id', as: 'alumno' });
 Usuario.hasMany(Seguimiento, { foreignKey: 'alumno_id', as: 'seguimientosRecibidos' });
 
-// Un seguimiento es creado por un Docente (Usuario)
 Seguimiento.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
 Usuario.hasMany(Seguimiento, { foreignKey: 'docente_id', as: 'seguimientosRealizados' });
 
+
+// ============================================================================
+// --- ASOCIACIONES NUEVAS v2.6.0: HISTORIAL DE CALIFICACIONES DE PROYECTOS ---
+// ============================================================================
+
+/**
+ * Propósito: Vincular las calificaciones históricas con el Proyecto evaluado.
+ * Quién la alimenta: Invocada por controladores al listar o añadir notas a un proyecto.
+ * Qué datos retorna: Relación de pertenencia 1:N (Un proyecto tiene muchas calificaciones).
+ */
+CalificacionProyecto.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
+Proyecto.hasMany(CalificacionProyecto, { foreignKey: 'proyecto_id', as: 'calificaciones' });
+
+/**
+ * Propósito: Asociar la nota con su concepto académico de la tabla maestra.
+ * Quién la alimenta: Invocada al consultar las calificaciones para renderizar el nombre del hito.
+ * Qué datos retorna: Relación 1:1 (Cada calificación pertenece a un hito conceptual).
+ */
+CalificacionProyecto.belongsTo(HitoEvaluacion, { foreignKey: 'hito_id', as: 'hito_detalle' });
+HitoEvaluacion.hasMany(CalificacionProyecto, { foreignKey: 'hito_id' });
+
+/**
+ * Propósito: Rastrear de forma auditable qué Docente (Usuario) asentó la calificación.
+ * Quién la alimenta: Utilizada en reportes de auditoría docente e historial de calificaciones.
+ * Qué datos retorna: Relación de pertenencia 1:1 (Cada nota posee un docente calificador asignado).
+ */
+CalificacionProyecto.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'docente_calificador' });
+Usuario.hasMany(CalificacionProyecto, { foreignKey: 'usuario_id' });
+
+
 module.exports = {
-    sequelize,
-    Usuario,
-    Proyecto,
-    Tarea,
-    UserStory,
-    Rol,
-    EstadoProyecto,
-    Prioridad,
-    EstadoTarea,
-    TipoTarea,
-    PrioridadUS,
-    EstadoUS,
-    Escuela,
-    Especialidad,
-    Entregable,
-    Sugerencia,
-    Seguimiento,
-    NotaDocente,
+  sequelize,
+  Usuario,
+  Proyecto,
+  Tarea,
+  UserStory,
+  Rol,
+  EstadoProyecto,
+  Prioridad,
+  EstadoTarea,
+  TipoTarea,
+  PrioridadUS,
+  EstadoUS,
+  Escuela,
+  Especialidad,
+  Entregable,
+  Sugerencia,
+  Seguimiento,
+  NotaDocente,
+  // EXPORTACIONES v2.6.0: Modelos acoplados formalmente al ecosistema de la app
+  HitoEvaluacion,
+  CalificacionProyecto
 };
