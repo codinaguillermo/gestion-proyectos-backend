@@ -4,8 +4,8 @@ const { sequelize, Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, 
 // --- HELPER PARA CARGA DE INTEGRANTES ---
 const includeIntegrantesConCarga = { 
     model: Usuario, 
-    as: 'integrantes', 
-    attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono'],
+    as: 'integrantes',     
+    attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'especialidad_id'],
     where: { activo: true },
     include: [
         { model: Rol, attributes: ['nombre'] },

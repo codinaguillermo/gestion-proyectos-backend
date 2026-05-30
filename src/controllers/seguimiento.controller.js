@@ -1,13 +1,14 @@
-const { Seguimiento, Usuario, Proyecto, Escuela,Especialidad } = require('../models');
+const { Seguimiento, Usuario, Proyecto, Escuela, Especialidad, Materia } = require('../models');
 
 /**
- * crearSeguimiento: Registra una nueva observación pedagógica.
- * Alimenta a: SeguimientoModal.vue
- * Retorna: Objeto de seguimiento creado.
+ * función crearSeguimiento
+ * propósito Registra una nueva observación pedagógica individual asociada a una materia específica.
+ * alimenta SeguimientoModal.vue (Formulario de carga de notas de concepto cualitativas)
+ * retorna {Object} JSON con { success: true, data: Objeto de seguimiento creado } o estado de error.
  */
 exports.crearSeguimiento = async (req, res) => {
     try {
-        const { proyecto_id, alumno_id, desempeno, observacion } = req.body;
+        const { proyecto_id, alumno_id, materia_id, desempeno, observacion } = req.body;
         const docente = req.user || req.usuario; 
         
         if (!docente || !docente.id) {
@@ -18,10 +19,15 @@ exports.crearSeguimiento = async (req, res) => {
             return res.status(403).json({ success: false, error: "No tienes permisos de docente." });
         }
 
+        if (!materia_id) {
+            return res.status(400).json({ success: false, error: "La materia es obligatoria para asentar el seguimiento." });
+        }
+
         const nuevo = await Seguimiento.create({
             proyecto_id,
             alumno_id,
             docente_id: docente.id,
+            materia_id, // Nuevo campo incorporado
             desempeno,
             observacion
         });
@@ -33,16 +39,20 @@ exports.crearSeguimiento = async (req, res) => {
 };
 
 /**
- * obtenerEstadisticasProyecto: Calcula promedios para el gráfico de barras.
- * Alimenta a: Monitor de Desempeño en ProyectoConfigView.
- * Retorna: Array con promedios por alumno.
+ * función obtenerEstadisticasProyecto
+ * propósito Calcula los promedios generales e individuales para el monitor de rendimiento, incluyendo contexto de materias.
+ * alimenta Monitor de Desempeño en ProyectoConfigView y gráficos adaptados con filtros por materia.
+ * retorna {Object} JSON con { success: true, data: Array de objetos con promedios disgregados por alumno }
  */
 exports.obtenerEstadisticasProyecto = async (req, res) => {
     try {
         const { proyectoId } = req.params;
         const seguimientos = await Seguimiento.findAll({
             where: { proyecto_id: proyectoId },
-            include: [{ model: Usuario, as: 'alumno', attributes: ['nombre', 'apellido'] }]
+            include: [
+                { model: Usuario, as: 'alumno', attributes: ['nombre', 'apellido'] },
+                { model: Materia, as: 'materia', attributes: ['id', 'nombre'], required: false } // Relación incorporada para filtrado dinámico
+            ]
         });
 
         const agrupado = seguimientos.reduce((acc, seg) => {
@@ -70,19 +80,11 @@ exports.obtenerEstadisticasProyecto = async (req, res) => {
 };
 
 /**
- * obtenerHistorialAlumno: Obtiene historial detallado con contexto institucional.
- * Alimenta a: DetalleSeguimientoModal.vue (Previsualización y PDF).
- * Retorna: Lista cronológica con datos de docente, proyecto y escuela.
+ * función obtenerHistorialAlumno
+ * propósito Obtiene el historial cronológico y detallado de seguimientos cualitativos de un alumno, incluyendo la materia calificada.
+ * alimenta DetalleSeguimientoModal.vue (Vistas de rendimiento, filtros por asignatura y renderizado de PDF)
+ * retorna {Object} JSON con { success: true, data: Array de seguimientos ordenados por fecha con blindaje completo de joins }
  */
-/**
- * obtenerHistorialAlumno: Obtiene historial con blindaje de joins.
- * Propósito: Evitar que la falta de un dato anidado (como especialidad) rompa la consulta.
- */
-/**
- * obtenerHistorialAlumno: Versión de máxima compatibilidad.
- * Propósito: Traer seguimientos aunque fallen las relaciones secundarias.
- */
-
 exports.obtenerHistorialAlumno = async (req, res) => {
     try {
         const { proyectoId, alumnoId } = req.params;
@@ -98,6 +100,12 @@ exports.obtenerHistorialAlumno = async (req, res) => {
                     as: 'docente', 
                     attributes: ['apellido'],
                     required: false 
+                },
+                {
+                    model: Materia,
+                    as: 'materia', // Debe coincidir con el alias definido en la relación del modelo Seguimiento
+                    attributes: ['id', 'nombre'],
+                    required: false
                 },
                 { 
                     model: Proyecto, 
@@ -117,7 +125,7 @@ exports.obtenerHistorialAlumno = async (req, res) => {
                     required: false,
                     include: [{ 
                         model: Especialidad, 
-                        as: 'especialidad_detalle', // Tu alias de index.js
+                        as: 'especialidad_detalle', 
                         attributes: ['nombre'],
                         required: false 
                     }]
@@ -128,7 +136,6 @@ exports.obtenerHistorialAlumno = async (req, res) => {
 
         res.json({ success: true, data: historial });
     } catch (error) {
-        // Este console.log te avisó del error, ahora debería dar success
         console.error("ERROR EN CONTROLADOR:", error.message);
         res.status(500).json({ success: false, error: error.message });
     }

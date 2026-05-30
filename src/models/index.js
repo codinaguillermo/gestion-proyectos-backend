@@ -16,6 +16,9 @@ const Entregable = require('./entregable.model');
 const HitoEvaluacion = require('./hitoEvaluacion.model');
 const CalificacionProyecto = require('./calificacionProyecto.model');
 
+// NUEVO MODELO v2.7.0: Entidad para el desglose curricular por especialidad
+const Materia = require('./materia.model');
+
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
 const EstadoUS = require('./estadoUS.model.js');
@@ -43,7 +46,25 @@ Sugerencia.belongsTo(Usuario, {
 Usuario.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialidad_detalle' });
 Especialidad.hasMany(Usuario, { foreignKey: 'especialidad_id' });
 
-// --- RELACIÓN: USUARIOS Y ESCUELAS (N:M) ---
+// --- RELACIONES NUEVAS v2.7.0: MATERIAS Y ESPECIALIDADES (1:N) ---
+/**
+ * Propósito: Vincular curricularmente las materias con su respectiva especialidad técnica.
+ * Quién la alimenta: Invocado por controladores de configuración para poblar selects del frontend según el track del proyecto.
+ * Qué datos retorna: Relación de pertenencia 1:N (Una especialidad contiene muchas materias).
+ */
+Materia.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialidad' });
+Especialidad.hasMany(Materia, { foreignKey: 'especialidad_id', as: 'materias' });
+
+// --- RELACIONES REESTRUCTURADAS v2.7.0: SEGUIMIENTO DE ALUMNOS ---
+/**
+ * Propósito: Vincular las observaciones pedagógicas individuales con una materia del diseño curricular.
+ * Quién la alimenta: Invocada por el controlador al crear o listar seguimientos cualitativos de un alumno.
+ * Qué datos retorna: Relación de pertenencia 1:1 (Cada registro de seguimiento corresponde a una única materia).
+ */
+Seguimiento.belongsTo(Materia, { foreignKey: 'materia_id', as: 'materia' });
+Materia.hasMany(Seguimiento, { foreignKey: 'materia_id', as: 'seguimientosAsociados' });
+
+// --- RELACIONES USUARIOS Y ESCUELAS (N:M) ---
 Usuario.belongsToMany(Escuela, { 
   through: 'usuario_escuelas', 
   as: 'escuelas', 
@@ -139,7 +160,7 @@ Tarea.belongsToMany(Tarea, {
   timestamps: false 
 });
 
-// --- RELACIONES DE SEGUIMIENTO ---
+// --- RELACIONES DE SEGUIMIENTO (Adaptados conceptualmente a seguimientos_alumnos) ---
 Seguimiento.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
 Proyecto.hasMany(Seguimiento, { foreignKey: 'proyecto_id', as: 'seguimientos' });
 
@@ -150,9 +171,6 @@ Seguimiento.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
 Usuario.hasMany(Seguimiento, { foreignKey: 'docente_id', as: 'seguimientosRealizados' });
 
 
-// ============================================================================
-// --- ASOCIACIONES NUEVAS v2.6.0: HISTORIAL DE CALIFICACIONES DE PROYECTOS ---
-// ============================================================================
 
 /**
  * Propósito: Vincular las calificaciones históricas con el Proyecto evaluado.
@@ -198,7 +216,8 @@ module.exports = {
   Sugerencia,
   Seguimiento,
   NotaDocente,
-  // EXPORTACIONES v2.6.0: Modelos acoplados formalmente al ecosistema de la app
   HitoEvaluacion,
-  CalificacionProyecto
+  CalificacionProyecto,
+  // EXPORTACIÓN v2.7.0: Entidad mapeada para la segmentación por materia curricular
+  Materia
 };
