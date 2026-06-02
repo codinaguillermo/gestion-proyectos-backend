@@ -83,6 +83,19 @@ const Proyecto = sequelize.define('proyecto', {
     field: 'documento_viabilidad_link'
   },
 
+  /* --- NUEVO CAMPO v2.9.0: REPOSITORIO DOCUMENTAL --- */
+  /**
+   * @campo linkDrive
+   * @propósito Almacenar la URL de la carpeta o espacio de Google Drive donde se alojan todos los documentos del proyecto.
+   * @alimenta Endpoints del controlador de proyectos (GET para visualización, PUT para actualización exclusiva de docentes).
+   * @retorna Cadena de texto (URL) o nulo si no fue asignado aún.
+   */
+  linkDrive: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'link_drive'
+  }
+
 }, {
   tableName: 'proyectos',
   timestamps: true,

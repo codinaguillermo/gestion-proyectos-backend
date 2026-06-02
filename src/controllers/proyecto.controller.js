@@ -24,9 +24,9 @@ const includeIntegrantesConCarga = {
 
 // --- 1. OBTENER UN PROYECTO POR ID (PARA VISUALIZACIÓN Y EDICIÓN) ---
 /**
- * Obtiene un proyecto específico incluyendo su viabilidad y documentación de respaldo.
- * Alimenta a: ProyectoConfigView.vue y DetalleProyecto
- * Retorna: Objeto Proyecto completo con relaciones
+ * @propósito Obtiene un proyecto específico incluyendo su viabilidad, documentación de respaldo y repositorio Drive (v2.9.0).
+ * @alimenta a: ProyectoConfigView.vue y DetalleProyecto
+ * @retorna Objeto Proyecto completo con relaciones
  */
 const obtenerProyectoPorId = async (req, res) => {
     try {
@@ -40,7 +40,8 @@ const obtenerProyectoPorId = async (req, res) => {
                 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado',
                 'fecha_cierre_1', 'fecha_cierre_2', 'created_at',
-                'viable', 'documentoViabilidadLink' // Campos de viabilidad agregados
+                'viable', 'documentoViabilidadLink',
+                'linkDrive' // NUEVO v2.9.0: Incluido para que viaje al frontend
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
@@ -72,9 +73,9 @@ const obtenerProyectoPorId = async (req, res) => {
 
 // --- 2. LISTADO DE PROYECTOS ---
 /**
- * Lista proyectos según permisos del usuario, incluyendo el estado de viabilidad para el semáforo del Dashboard.
- * Alimenta a: Dashboard.vue
- * Retorna: Array de objetos Proyecto
+ * @propósito Lista proyectos según permisos del usuario, incluyendo campos vitales y linkDrive (v2.9.0).
+ * @alimenta a: Dashboard.vue
+ * @retorna Array de objetos Proyecto
  */
 const obtenerProyectos = async (req, res) => {
     try {
@@ -105,7 +106,8 @@ const obtenerProyectos = async (req, res) => {
                 'id', 'nombre', 'descripcion', 'estado_id', 'docente_owner_id', 'escuela_id', 'created_at',
                 'objetivo', 'objetivoBloqueado', 'alcancePrototipo', 'alcancePrototipoBloqueado',
                 'alcanceFinal', 'alcanceFinalBloqueado', 'fecha_cierre_1', 'fecha_cierre_2',
-                'viable', 'documentoViabilidadLink' // Campos de viabilidad agregados
+                'viable', 'documentoViabilidadLink',
+                'linkDrive' // NUEVO v2.9.0: Incluido para listados generales
             ],
             include: [
                 { model: EstadoProyecto, attributes: ['id', 'nombre'] },
@@ -125,9 +127,9 @@ const obtenerProyectos = async (req, res) => {
 
 // --- 3. CREAR PROYECTO ---
 /**
- * Crea un nuevo proyecto inicializando los campos de viabilidad en false.
- * Alimenta a: Dashboard.vue (Modal Nuevo Proyecto)
- * Retorna: Objeto Proyecto creado
+ * @propósito Crea un nuevo proyecto inicializando los campos básicos.
+ * @alimenta a: Dashboard.vue (Modal Nuevo Proyecto)
+ * @retorna Objeto Proyecto creado
  */
 const crearProyecto = async (req, res) => {
     try {
@@ -164,9 +166,9 @@ const crearProyecto = async (req, res) => {
 
 // --- 4. ACTUALIZAR PROYECTO ---
 /**
- * Actualiza datos del proyecto, permitiendo a docentes validar la viabilidad.
- * Alimenta a: ProyectoConfigView.vue
- * Retorna: Objeto con mensaje de éxito y el proyecto actualizado
+ * @propósito Actualiza datos del proyecto. Docentes gestionan estados de bloqueo, viabilidad y linkDrive (v2.9.0). Alumnos solo lectura de campos restringidos.
+ * @alimenta a: ProyectoConfigView.vue
+ * @retorna Objeto con mensaje de éxito y el proyecto actualizado
  */
 const actualizarProyecto = async (req, res) => {
     const t = await sequelize.transaction();
@@ -185,11 +187,12 @@ const actualizarProyecto = async (req, res) => {
             objetivo: datos.objetivo, 
             alcanceFinal: datos.alcanceFinal,            
             
-            // Solo docentes pueden modificar estados de bloqueo
+            // Solo docentes pueden modificar estados de bloqueo y links institucionales
             objetivoBloqueado: esDocente ? datos.objetivoBloqueado : undefined,
             alcanceFinalBloqueado: esDocente ? datos.alcanceFinalBloqueado : undefined,
             viable: esDocente ? datos.viable : undefined,
-            documentoViabilidadLink: datos.documentoViabilidadLink
+            documentoViabilidadLink: datos.documentoViabilidadLink,
+            linkDrive: esDocente ? datos.linkDrive : undefined // NUEVO v2.9.0: Blindado contra alumnos
         };
 
         await Proyecto.update(camposParaActualizar, { where: { id }, transaction: t });
@@ -254,9 +257,9 @@ const eliminarProyecto = async (req, res) => {
 // ============================================================================
 
 /**
- * Propósito: Recuperar el historial cronológico de notas asentadas sobre un proyecto.
- * Quién la alimenta: Invocada por las rutas operativas para listar las notas en el frontend.
- * Qué datos retorna: Array de objetos CalificacionProyecto con los detalles del hito y del docente calificador.
+ * @propósito Recuperar el historial cronológico de notas asentadas sobre un proyecto.
+ * @alimenta Invocada por las rutas operativas para listar las notas en el frontend.
+ * @retorna Array de objetos CalificacionProyecto con los detalles del hito y del docente calificador.
  */
 const obtenerCalificacionesProyecto = async (req, res) => {
     try {
@@ -280,9 +283,9 @@ const obtenerCalificacionesProyecto = async (req, res) => {
 };
 
 /**
- * Propósito: Registrar de forma segura un nuevo hito de calificación académica para el proyecto.
- * Quién la alimenta: Formulario de asignación de notas en la interfaz docente.
- * Qué datos retorna: Objeto con mensaje de éxito y el registro de la calificación creada.
+ * @propósito Registrar de forma segura un nuevo hito de calificación académica para el proyecto.
+ * @alimenta Formulario de asignación de notas en la interfaz docente.
+ * @retorna Objeto con mensaje de éxito y el registro de la calificación creada.
  */
 const registrarCalificacionProyecto = async (req, res) => {
     try {
@@ -331,7 +334,6 @@ module.exports = {
     obtenerProyectos, 
     actualizarProyecto, 
     eliminarProyecto,
-    // EXPORTACIONES v2.6.0: Habilitadas para el enrutador operativo
     obtenerCalificacionesProyecto,
     registrarCalificacionProyecto
 };
