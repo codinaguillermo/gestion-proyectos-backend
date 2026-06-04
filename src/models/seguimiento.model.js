@@ -32,12 +32,23 @@ const Seguimiento = sequelize.define('seguimiento', {
     comment: 'Asignatura específica a la que corresponde la nota conceptual (v2.7.0)',
     references: { model: 'materias', key: 'id' }
   },
+  
+  /**
+   * @campo desempeno
+   * @propósito Almacenar la calificación cuantitativa del alumno en la materia, estrictamente entre 1 y 10 (cero no permitido).
+   * @alimenta Endpoints del controlador de seguimientos y cálculos de promedios en el frontend.
+   * @retorna Valor numérico decimal (ej: 7.50).
+   */
   desempeno: {
-    type: DataTypes.TINYINT, // 1: Malo, 2: Regular, 3: Bueno
+    type: DataTypes.DECIMAL(4, 2), 
     allowNull: false,
-    comment: 'Escala cualitativa del rendimiento actitudinal',
-    validate: { min: 1, max: 3 }
+    comment: 'Escala cuantitativa del rendimiento académico (1 al 10)',
+    validate: { 
+      min: 1, 
+      max: 10 
+    }
   },
+  
   observacion: {
     type: DataTypes.TEXT,
     allowNull: true,

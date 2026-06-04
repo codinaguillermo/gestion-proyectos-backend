@@ -1,10 +1,10 @@
 const { Seguimiento, Usuario, Proyecto, Escuela, Especialidad, Materia } = require('../models');
 
 /**
- * función crearSeguimiento
- * propósito Registra una nueva observación pedagógica individual asociada a una materia específica.
- * alimenta SeguimientoModal.vue (Formulario de carga de notas de concepto cualitativas)
- * retorna {Object} JSON con { success: true, data: Objeto de seguimiento creado } o estado de error.
+ * @función crearSeguimiento
+ * @propósito Registra una nueva calificación cuantitativa (1 al 10) y observación pedagógica asociada a una materia específica.
+ * @alimenta SeguimientoModal.vue (Formulario de carga de notas)
+ * @retorna {Object} JSON con { success: true, data: Objeto de seguimiento creado } o estado de error.
  */
 exports.crearSeguimiento = async (req, res) => {
     try {
@@ -23,12 +23,18 @@ exports.crearSeguimiento = async (req, res) => {
             return res.status(400).json({ success: false, error: "La materia es obligatoria para asentar el seguimiento." });
         }
 
+        // NUEVA REGLA DE NEGOCIO: Validar que el desempeño sea un número del 1 al 10 (se prohíbe el cero)
+        const valorNota = parseFloat(desempeno);
+        if (isNaN(valorNota) || valorNota <= 0 || valorNota > 10) {
+            return res.status(400).json({ success: false, error: "La calificación cuantitativa debe ser un valor estricto entre 1 y 10." });
+        }
+
         const nuevo = await Seguimiento.create({
             proyecto_id,
             alumno_id,
             docente_id: docente.id,
-            materia_id, // Nuevo campo incorporado
-            desempeno,
+            materia_id, 
+            desempeno: valorNota, // Se guarda el valor validado
             observacion
         });
 
@@ -39,10 +45,10 @@ exports.crearSeguimiento = async (req, res) => {
 };
 
 /**
- * función obtenerEstadisticasProyecto
- * propósito Calcula los promedios generales e individuales para el monitor de rendimiento, incluyendo contexto de materias.
- * alimenta Monitor de Desempeño en ProyectoConfigView y gráficos adaptados con filtros por materia.
- * retorna {Object} JSON con { success: true, data: Array de objetos con promedios disgregados por alumno }
+ * @función obtenerEstadisticasProyecto
+ * @propósito Calcula los promedios generales cuantitativos individuales para el monitor de rendimiento, incluyendo contexto de materias.
+ * @alimenta Monitor de Desempeño en ProyectoConfigView y gráficos adaptados con filtros por materia.
+ * @retorna {Object} JSON con { success: true, data: Array de objetos con promedios disgregados por alumno }
  */
 exports.obtenerEstadisticasProyecto = async (req, res) => {
     try {
@@ -64,7 +70,7 @@ exports.obtenerEstadisticasProyecto = async (req, res) => {
                     cantidad: 0 
                 };
             }
-            acc[id].totalPuntos += seg.desempeno;
+            acc[id].totalPuntos += Number(seg.desempeno); // Aseguramos que sume como número decimal
             acc[id].cantidad += 1;
             return acc;
         }, {});
@@ -80,10 +86,10 @@ exports.obtenerEstadisticasProyecto = async (req, res) => {
 };
 
 /**
- * función obtenerHistorialAlumno
- * propósito Obtiene el historial cronológico y detallado de seguimientos cualitativos de un alumno, incluyendo la materia calificada.
- * alimenta DetalleSeguimientoModal.vue (Vistas de rendimiento, filtros por asignatura y renderizado de PDF)
- * retorna {Object} JSON con { success: true, data: Array de seguimientos ordenados por fecha con blindaje completo de joins }
+ * @función obtenerHistorialAlumno
+ * @propósito Obtiene el historial cronológico y detallado de calificaciones de un alumno, incluyendo la materia calificada.
+ * @alimenta DetalleSeguimientoModal.vue (Vistas de rendimiento, filtros por asignatura y renderizado de PDF)
+ * @retorna {Object} JSON con { success: true, data: Array de seguimientos ordenados por fecha con blindaje completo de joins }
  */
 exports.obtenerHistorialAlumno = async (req, res) => {
     try {
