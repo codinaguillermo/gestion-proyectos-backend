@@ -18,6 +18,7 @@ const escuelaRoutes = require('./src/routes/escuela.routes');
 const statsRoutes = require('./src/routes/stats.routes');
 const sugerenciaRoutes = require('./src/routes/sugerencia.routes');
 const seguimientoRoutes = require('./src/routes/seguimiento.routes');
+const reporteRoutes = require('./src/routes/reporte.routes'); // <-- IMPORTADO ACÁ ARRIBA
 
 
 // 4. INICIALIZACIÓN DE LA APP
@@ -42,6 +43,7 @@ app.use('/api/escuelas', escuelaRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/sugerencias', sugerenciaRoutes);
 app.use('/api/seguimientos', seguimientoRoutes);
+app.use('/api/reportes', reporteRoutes); // <-- USADO ACÁ
 
 console.log('--- DEBUG DE EMERGENCIA ---');
 console.log('Contenido de seguimientoRoutes:', seguimientoRoutes);
@@ -79,11 +81,6 @@ app.use((req, res, next) => {
     }
     next();
 });
-
-// Comentamos este porque ahora el "/" lo maneja el 'dist' de arriba
-// app.get('/', (req, res) => {
-//   res.send('¡API Gestor de Proyectos funcionando! 🚀');
-// });
 
 const startServer = async () => {
     try {
