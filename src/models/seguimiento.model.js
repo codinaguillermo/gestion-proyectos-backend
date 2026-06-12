@@ -3,7 +3,7 @@ const { sequelize } = require('../config/db');
 
 /**
  * @modelo Seguimiento
- * @propósito Registrar observaciones pedagógicas, conceptuales y actitudinales de alumnos individuales segmentadas por materia.
+ * @propósito Registrar observaciones pedagógicas, conceptuales y actitudinales de alumnos individuales segmentadas por materia y fecha.
  * @comentario Mantiene integridad referencial física con Proyecto, Alumno (Usuario), Docente (Usuario) y Materias.
  * @alimenta Seguimiento.controller.js, SeguimientoModal.vue y el Monitor de Desempeño.
  */
@@ -31,6 +31,18 @@ const Seguimiento = sequelize.define('seguimiento', {
     allowNull: false,
     comment: 'Asignatura específica a la que corresponde la nota conceptual (v2.7.0)',
     references: { model: 'materias', key: 'id' }
+  },
+  
+  /**
+   * @campo fecha_evaluacion
+   * @propósito Registrar la fecha real en la que se evaluó al alumno, independiente de cuándo se cargó en el sistema.
+   * @alimenta Reportes de Excel (como columnas dinámicas pivotadas) y el historial cronológico.
+   * @retorna Cadena de fecha en formato YYYY-MM-DD.
+   */
+  fecha_evaluacion: {
+    type: DataTypes.DATEONLY,
+    allowNull: false,
+    comment: 'Fecha manual en la que se realizó la evaluación'
   },
   
   /**

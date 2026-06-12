@@ -272,7 +272,8 @@ const obtenerCalificacionesProyecto = async (req, res) => {
                 { model: HitoEvaluacion, as: 'hito_detalle', attributes: ['id', 'nombre'] },
                 { model: Usuario, as: 'docente_calificador', attributes: ['id', 'nombre', 'apellido'] }
             ],
-            order: [['fecha', 'DESC']]
+            // Ahora ordena por la fecha de evaluación real que cargó el profe
+            order: [['fecha', 'DESC']] 
         });
 
         return res.json(calificaciones);
@@ -283,23 +284,27 @@ const obtenerCalificacionesProyecto = async (req, res) => {
 };
 
 /**
- * @propósito Registrar de forma segura un nuevo hito de calificación académica para el proyecto.
+ * @propósito Registrar de forma segura un nuevo hito de calificación académica para el proyecto, usando la fecha de evaluación manual.
  * @alimenta Formulario de asignación de notas en la interfaz docente.
  * @retorna Objeto con mensaje de éxito y el registro de la calificación creada.
  */
 const registrarCalificacionProyecto = async (req, res) => {
     try {
         const { id } = req.params; // proyecto_id
-        const { hito_id, nota, descripcion } = req.body;
+        
+        // Atrapamos la fecha manual acá
+        const { hito_id, nota, descripcion, fecha_evaluacion } = req.body; 
         const usuarioLogueado = req.usuario;
 
-        // Regla de negocio: Solo Directivos (1) o Docentes (2) asientan calificaciones
         const miRol = Number(usuarioLogueado.rol_id);
         if (miRol !== 1 && miRol !== 2) {
             return res.status(403).json({ mensaje: "Operación rechazada. Solo el personal docente posee permisos de evaluación." });
         }
 
-        // Validación explícita de rango académico (Sincronizado con el CHECK CONSTRAINT de MySQL)
+        if (!fecha_evaluacion) {
+            return res.status(400).json({ mensaje: "La fecha de evaluación es obligatoria." });
+        }
+
         const valorNota = parseFloat(nota);
         if (isNaN(valorNota) || valorNota < 0.00 || valorNota > 10.00) {
             return res.status(400).json({ mensaje: "La calificación cuantitativa debe comprenderse de forma estricta entre 0.00 y 10.00." });
@@ -311,7 +316,8 @@ const registrarCalificacionProyecto = async (req, res) => {
             usuario_id: Number(usuarioLogueado.id),
             nota: valorNota,
             descripcion: descripcion || null,
-            fecha: new Date()
+            // Insertamos la fecha manual en lugar de new Date()
+            fecha: fecha_evaluacion 
         });
 
         const registroCompleto = await CalificacionProyecto.findByPk(nuevaCalificacion.id, {
@@ -328,6 +334,88 @@ const registrarCalificacionProyecto = async (req, res) => {
     }
 };
 
+// ============================================================================
+// --- FUNCIONES NUEVAS v2.9.1: EDICIÓN Y ELIMINACIÓN DE NOTAS GRUPALES -------
+// ============================================================================
+
+/**
+ * @propósito Modifica un registro de calificación grupal existente (nota, fecha u observación).
+ * @alimenta Modal de edición en ProyectoConfigView.vue.
+ * @retorna Objeto con mensaje de éxito y la nota actualizada.
+ */
+const actualizarCalificacionProyecto = async (req, res) => {
+    try {
+        const { id, calificacionId } = req.params; // id = proyecto_id
+        const { nota, descripcion, fecha_evaluacion } = req.body;
+        const usuarioLogueado = req.usuario;
+
+        const miRol = Number(usuarioLogueado.rol_id);
+        if (miRol !== 1 && miRol !== 2) {
+            return res.status(403).json({ mensaje: "Operación rechazada. Solo el personal docente posee permisos de evaluación." });
+        }
+
+        const calificacion = await CalificacionProyecto.findOne({
+            where: { id: calificacionId, proyecto_id: id }
+        });
+
+        if (!calificacion) {
+            return res.status(404).json({ mensaje: "Registro de calificación no encontrado en este proyecto." });
+        }
+
+        if (!fecha_evaluacion) {
+            return res.status(400).json({ mensaje: "La fecha de evaluación es obligatoria." });
+        }
+
+        const valorNota = parseFloat(nota);
+        if (isNaN(valorNota) || valorNota < 0.00 || valorNota > 10.00) {
+            return res.status(400).json({ mensaje: "La calificación cuantitativa debe comprenderse de forma estricta entre 0.00 y 10.00." });
+        }
+
+        await calificacion.update({
+            nota: valorNota,
+            descripcion: descripcion || null,
+            fecha: fecha_evaluacion
+        });
+
+        res.json({ mensaje: "Calificación grupal actualizada con éxito.", calificacion });
+    } catch (error) {
+        console.error("ERROR EN actualizarCalificacionProyecto:", error);
+        return res.status(500).json({ mensaje: "Error del servidor al actualizar la calificación." });
+    }
+};
+
+/**
+ * @propósito Elimina físicamente un registro de calificación grupal mal cargado.
+ * @alimenta Confirmación de borrado en ProyectoConfigView.vue.
+ * @retorna Mensaje de éxito.
+ */
+const eliminarCalificacionProyecto = async (req, res) => {
+    try {
+        const { id, calificacionId } = req.params; // id = proyecto_id
+        const usuarioLogueado = req.usuario;
+
+        const miRol = Number(usuarioLogueado.rol_id);
+        if (miRol !== 1 && miRol !== 2) {
+            return res.status(403).json({ mensaje: "Operación rechazada. Solo el personal docente posee permisos de evaluación." });
+        }
+
+        const calificacion = await CalificacionProyecto.findOne({
+            where: { id: calificacionId, proyecto_id: id }
+        });
+
+        if (!calificacion) {
+            return res.status(404).json({ mensaje: "Registro de calificación no encontrado en este proyecto." });
+        }
+
+        await calificacion.destroy();
+
+        res.json({ mensaje: "Calificación grupal eliminada correctamente." });
+    } catch (error) {
+        console.error("ERROR EN eliminarCalificacionProyecto:", error);
+        return res.status(500).json({ mensaje: "Error del servidor al eliminar la calificación." });
+    }
+};
+
 module.exports = { 
     obtenerProyectoPorId, 
     crearProyecto, 
@@ -335,5 +423,7 @@ module.exports = {
     actualizarProyecto, 
     eliminarProyecto,
     obtenerCalificacionesProyecto,
-    registrarCalificacionProyecto
+    registrarCalificacionProyecto,
+    actualizarCalificacionProyecto,
+    eliminarCalificacionProyecto
 };

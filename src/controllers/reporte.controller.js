@@ -61,7 +61,7 @@ exports.obtenerFiltrosPlanilla = async (req, res) => {
 
 /**
  * @función generarDatosPlanillaExcel
- * @propósito Consultar la BD, pivotar las calificaciones como columnas dinámicas por fecha de evaluación y calcular el promedio final.
+ * @propósito Consultar la BD, pivotar las calificaciones usando FECHA_EVALUACION (manual) como columnas dinámicas y calcular promedio.
  * @quien_la_llama El frontend (ExportarNotasModal.vue) al hacer clic en el botón "Generar Excel".
  * @retorna {Object} JSON con { success: true, data: Array de objetos purificados }
  */
@@ -94,8 +94,8 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
                 {
                     model: Seguimiento,
                     as: 'seguimientosRecibidos',
-                    // CORRECCIÓN: Usamos snake_case exacto como está en tu base de datos
-                    attributes: ['desempeno', 'created_at'],
+                    // CORRECCIÓN: Solicitamos explícitamente fecha_evaluacion
+                    attributes: ['desempeno', 'fecha_evaluacion'],
                     where: { materia_id: materia_id }, 
                     required: false 
                 }
@@ -106,30 +106,28 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
             ]
         });
 
-        // PASO 1: Recolectar todas las fechas exactas de evaluación que existen en este grupo
+        // PASO 1: Recolectar todas las fechas de evaluación reales
         const setFechas = new Set();
         
         alumnos.forEach(al => {
             if (al.seguimientosRecibidos && al.seguimientosRecibidos.length > 0) {
                 al.seguimientosRecibidos.forEach(nota => {
-                    // CORRECCIÓN: Usamos created_at
-                    const d = new Date(nota.created_at);
-                    const dia = String(d.getDate()).padStart(2, '0');
-                    const mes = String(d.getMonth() + 1).padStart(2, '0');
-                    const anio = d.getFullYear();
-                    setFechas.add(`${dia}/${mes}/${anio}`);
+                    // Si la fecha es YYYY-MM-DD, la convertimos a DD/MM/YYYY
+                    if (nota.fecha_evaluacion) {
+                        const [anio, mes, dia] = nota.fecha_evaluacion.split('-');
+                        setFechas.add(`${dia}/${mes}/${anio}`);
+                    }
                 });
             }
         });
 
-        // Ordenar las fechas cronológicamente para que las columnas del Excel tengan sentido temporal
         const columnasFechas = Array.from(setFechas).sort((a, b) => {
             const [diaA, mesA, añoA] = a.split('/');
             const [diaB, mesB, añoB] = b.split('/');
             return new Date(añoA, mesA - 1, diaA) - new Date(añoB, mesB - 1, diaB);
         });
 
-        // PASO 2: Armar la fila de cada alumno asegurando que el orden de las propiedades sea estricto
+        // PASO 2: Armar la fila
         const datosPurificados = alumnos.map(al => {
             const fila = {
                 "Apellido": al.apellido.toUpperCase(),
@@ -143,30 +141,27 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
             let suma = 0;
             let cantidadNotas = 0;
 
-            // Pre-cargamos todas las columnas de fechas con vacío.
             columnasFechas.forEach(fechaCol => {
                 fila[fechaCol] = ""; 
             });
 
             if (al.seguimientosRecibidos && al.seguimientosRecibidos.length > 0) {
                 al.seguimientosRecibidos.forEach(nota => {
-                    // CORRECCIÓN: Usamos created_at
-                    const d = new Date(nota.created_at);
-                    const dia = String(d.getDate()).padStart(2, '0');
-                    const mes = String(d.getMonth() + 1).padStart(2, '0');
-                    const anio = d.getFullYear();
-                    const fechaStr = `${dia}/${mes}/${anio}`;
-                    
-                    const valorNota = Number(nota.desempeno);
-                    fila[fechaStr] = valorNota;
-                    
-                    suma += valorNota;
-                    cantidadNotas++;
+                    if (nota.fecha_evaluacion) {
+                        const [anio, mes, dia] = nota.fecha_evaluacion.split('-');
+                        const fechaStr = `${dia}/${mes}/${anio}`;
+                        
+                        const valorNota = Number(nota.desempeno);
+                        fila[fechaStr] = valorNota;
+                        
+                        suma += valorNota;
+                        cantidadNotas++;
+                    }
                 });
             }
 
             let promedio = cantidadNotas > 0 ? (suma / cantidadNotas).toFixed(2) : 0;
-            fila["Promedio_GEPRES"] = promedio > 0 ? Number(promedio) : "Sin calificar";
+            fila["Promedio"] = promedio > 0 ? Number(promedio) : "Sin calificar";
 
             return fila;
         });
