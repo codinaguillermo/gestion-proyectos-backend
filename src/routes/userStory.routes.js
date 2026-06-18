@@ -25,6 +25,7 @@ router.get('/proyecto/:proyectoId', verificarAccesoProyecto, userStoryController
  * OJO: Aquí no pasamos verificarAccesoProyecto porque el ID es de la USER STORY, no del PROYECTO.
  * La seguridad de estas 3 rutas YA LA TENÉS dentro del controlador (el código que pegamos recién).
  */
+router.get('/categorias', userStoryController.obtenerCategorias);
 router.get('/:id', userStoryController.obtenerUserStoryPorId);
 router.put('/:id', userStoryController.actualizarUserStory);
 router.delete('/:id', userStoryController.eliminarUserStory);

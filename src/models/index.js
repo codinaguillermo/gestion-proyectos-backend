@@ -8,6 +8,7 @@ const Tarea = require('./tarea.model');
 const Rol = require('./rol.model.js');
 const EstadoProyecto = require('./estadoProyecto.model.js');
 const UserStory = require('./userStory.model.js'); 
+const TipoUs = require('./tipoUs.model');
 const Escuela = require('./escuela.model'); 
 const Especialidad = require('./especialidad.model');
 const Entregable = require('./entregable.model'); 
@@ -83,8 +84,10 @@ Escuela.belongsToMany(Usuario, {
 // --- RELACIONES USER STORY ---
 UserStory.belongsTo(PrioridadUS, { foreignKey: 'prioridad_id', as: 'prioridad_detalle' });
 UserStory.belongsTo(EstadoUS, { foreignKey: 'estado_id', as: 'estado_detalle' });
+UserStory.belongsTo(TipoUs, { foreignKey: 'tipo_us_id', as: 'tipo' });
 PrioridadUS.hasMany(UserStory, { foreignKey: 'prioridad_id' });
 EstadoUS.hasMany(UserStory, { foreignKey: 'estado_id' });
+TipoUs.hasMany(UserStory, { foreignKey: 'tipo_us_id' });
 
 // --- RELACIONES PROYECTO ---
 Proyecto.belongsToMany(Usuario, { 
@@ -170,8 +173,6 @@ Usuario.hasMany(Seguimiento, { foreignKey: 'alumno_id', as: 'seguimientosRecibid
 Seguimiento.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
 Usuario.hasMany(Seguimiento, { foreignKey: 'docente_id', as: 'seguimientosRealizados' });
 
-
-
 /**
  * Propósito: Vincular las calificaciones históricas con el Proyecto evaluado.
  * Quién la alimenta: Invocada por controladores al listar o añadir notas a un proyecto.
@@ -196,13 +197,13 @@ HitoEvaluacion.hasMany(CalificacionProyecto, { foreignKey: 'hito_id' });
 CalificacionProyecto.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'docente_calificador' });
 Usuario.hasMany(CalificacionProyecto, { foreignKey: 'usuario_id' });
 
-
 module.exports = {
   sequelize,
   Usuario,
   Proyecto,
   Tarea,
   UserStory,
+  TipoUs,
   Rol,
   EstadoProyecto,
   Prioridad,
@@ -218,6 +219,5 @@ module.exports = {
   NotaDocente,
   HitoEvaluacion,
   CalificacionProyecto,
-  // EXPORTACIÓN v2.7.0: Entidad mapeada para la segmentación por materia curricular
   Materia
 };
