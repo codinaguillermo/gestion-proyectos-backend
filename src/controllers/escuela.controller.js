@@ -13,10 +13,27 @@ const listarEscuelas = async (req, res) => {
 
 const crearEscuela = async (req, res) => {
     try {
+        // 1. Verificamos si ya existe alguna escuela
+        const cantidad = await Escuela.count();
+        
+        if (cantidad > 0) {
+            return res.status(403).json({ 
+                error: 'GEPRES es monoinstitucional. Ya existe una escuela registrada.' 
+            });
+        }
+
+        // 2. Si no hay ninguna, procedemos con la creación
         const { nombre_corto, nombre_largo, cue, direccion } = req.body;
-        const nuevaEscuela = await Escuela.create({ nombre_corto, nombre_largo, cue, direccion });
+        const nuevaEscuela = await Escuela.create({ 
+            nombre_corto, 
+            nombre_largo, 
+            cue, 
+            direccion 
+        });
+        
         res.status(201).json(nuevaEscuela);
     } catch (error) {
+        console.error("Error al crear escuela:", error);
         res.status(500).json({ error: 'Error al crear escuela' });
     }
 };

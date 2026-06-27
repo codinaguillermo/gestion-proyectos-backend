@@ -23,9 +23,6 @@ router.get('/hitos-evaluacion', verificarToken, commonCtrl.listarHitosEvaluacion
 
 router.use('/notas-docentes', notaRoutes);
 
-// ============================================================================
-// --- RUTA NUEVA v2.7.0: SEGMENTACIÓN CURRICULAR POR ASIGNATURA --------------
-// ============================================================================
 /**
  * @ruta GET /api/common/materias/especialidad/:especialidadId
  * @propósito Retornar las materias oficiales asociadas a la especialidad técnica del alumno evaluado.
@@ -35,14 +32,20 @@ router.use('/notas-docentes', notaRoutes);
 router.get('/materias/especialidad/:especialidadId', verificarToken, async (req, res) => {
     try {
         const { especialidadId } = req.params;
+        const { curso } = req.query; // Recibimos "6to", "3ro", etc.
         
-        if (!especialidadId) {
-            return res.status(400).json({ success: false, error: "El ID de la especialidad es requerido." });
-        }
-
+        // --- LIMPIADOR DE CURSO ---
+        // Expresión regular que saca solo los números de cualquier string
+        // Si viene "6to", el match nos da ['6']. Si viene "3ro", ['3'].
+        const match = curso ? curso.match(/(\d+)/) : null;
+        const anio = match ? parseInt(match[0]) : 1; 
+        
         const listaMaterias = await Materia.findAll({
-            where: { especialidad_id: Number(especialidadId) },
-            order: [['nombre', 'ASC']] // Orden alfabético prolijo para el combo select
+            where: { 
+                especialidad_id: Number(especialidadId),
+                anio: anio // Asumiendo que ahora normalizaste tu tabla 'materias' con el campo 'anio'
+            },
+            order: [['nombre', 'ASC']]
         });
 
         res.json({ success: true, data: listaMaterias });
@@ -51,9 +54,6 @@ router.get('/materias/especialidad/:especialidadId', verificarToken, async (req,
     }
 });
 
-// ============================================================================
-// --- RUTA NUEVA v2.8.0: CREACIÓN DE MATERIA (GESTIÓN CURRICULAR) ------------
-// ============================================================================
 /**
  * @ruta POST /api/common/materias
  * @propósito Registrar una nueva materia curricular asociándola directamente a una especialidad técnica.
@@ -62,23 +62,21 @@ router.get('/materias/especialidad/:especialidadId', verificarToken, async (req,
  */
 router.post('/materias', verificarToken, async (req, res) => {
     try {
-        const { nombre, especialidad_id } = req.body;
+        const { nombre, especialidad_id, anio } = req.body; // Ahora recibís anio
 
-        // Validación de datos entrantes
-        if (!nombre || !especialidad_id) {
-            return res.status(400).json({ success: false, error: "El nombre de la materia y la especialidad son obligatorios." });
+        if (!nombre || !especialidad_id || !anio) {
+            return res.status(400).json({ success: false, error: "Faltan datos obligatorios." });
         }
 
-        // Creación del registro
         const nuevaMateria = await Materia.create({
-            nombre: nombre.trim().toUpperCase(), // Guardamos en mayúsculas para mantener consistencia
-            especialidad_id: Number(especialidad_id)
+            nombre: nombre.trim().toUpperCase(),
+            especialidad_id: Number(especialidad_id),
+            anio: Number(anio) // Lo guardamos en BD
         });
 
         res.status(201).json({ success: true, data: nuevaMateria });
     } catch (error) {
-        console.error("ERROR EN POST /materias:", error);
-        res.status(500).json({ success: false, error: "Error del servidor al intentar registrar la materia." });
+        res.status(500).json({ success: false, error: "Error al registrar." });
     }
 });
 

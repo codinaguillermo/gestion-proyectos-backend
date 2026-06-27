@@ -23,7 +23,8 @@ const Materia = sequelize.define('materia', {
     type: DataTypes.STRING(150),
     allowNull: false,
     comment: 'Nombre oficial de la asignatura curricular'
-  }
+  },
+  anio: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 } 
 }, {
   // Sincronización exacta con los nombres e índices físicos de producción
   tableName: 'materias',
