@@ -32,23 +32,23 @@ router.use('/notas-docentes', notaRoutes);
 router.get('/materias/especialidad/:especialidadId', verificarToken, async (req, res) => {
     try {
         const { especialidadId } = req.params;
-        const { curso } = req.query; // Recibimos "6to", "3ro", etc.
+        const { curso } = req.query; // Puede venir undefined o el valor
         
-        // --- LIMPIADOR DE CURSO ---
-        // Expresión regular que saca solo los números de cualquier string
-        // Si viene "6to", el match nos da ['6']. Si viene "3ro", ['3'].
-        const match = curso ? curso.match(/(\d+)/) : null;
-        const anio = match ? parseInt(match[0]) : 1; 
+        // Objeto dinámico para el WHERE de Sequelize
+        let filtroWhere = { especialidad_id: Number(especialidadId) };
+
+        // Solo aplicamos el filtro de año si recibimos el curso desde el frontend
+        if (curso) {
+            const match = curso.match(/(\d+)/);
+            filtroWhere.anio = match ? parseInt(match[0]) : 1;
+        }
         
         const listaMaterias = await Materia.findAll({
-            where: { 
-                especialidad_id: Number(especialidadId),
-                anio: anio // Asumiendo que ahora normalizaste tu tabla 'materias' con el campo 'anio'
-            },
+            where: filtroWhere,
             order: [['nombre', 'ASC']]
         });
 
-        res.json({ success: true, data: listaMaterias });
+        res.json({ success: true, data: listaMaterias });        
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
