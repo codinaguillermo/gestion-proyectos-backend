@@ -125,17 +125,31 @@ exports.obtenerEstadisticasProyecto = async (req, res) => {
 };
 
 /**
- * @función obtenerHistorialAlumno
- * @propósito Obtiene el historial cronológico y detallado de calificaciones de un alumno.
- * @alimenta DetalleSeguimientoModal.vue
- * @retorna {Object} JSON con { success: true, data: Array de seguimientos ordenados por fecha }
+ * Propósito: Obtiene el historial de calificaciones de un alumno. 
+ * Si proyectoId es 'todos', retorna el historial completo de todas las evaluaciones 
+ * registradas para el alumno, independientemente del proyecto al que pertenezca.
+ * Si se recibe un ID específico, filtra el historial solo para ese proyecto.
+ * 
+ * Alimenta a: seguimiento.routes.js (endpoint GET /historial/:proyectoId/:alumnoId)
+ * 
+ * @param {Object} req - Objeto de petición HTTP (espera proyectoId y alumnoId en params).
+ * @param {Object} res - Objeto de respuesta HTTP.
+ * @returns {JSON} success: true y data: array con el historial encontrado.
  */
 exports.obtenerHistorialAlumno = async (req, res) => {
     try {
         const { proyectoId, alumnoId } = req.params;
 
+        // Construimos el filtro dinámicamente según el parámetro recibido
+        let whereClause = { alumno_id: Number(alumnoId) };
+        
+        // Si no se solicita 'todos', aplicamos el filtro por proyecto para mantener compatibilidad
+        if (proyectoId !== 'todos') {
+            whereClause.proyecto_id = Number(proyectoId);
+        }
+
         const historial = await Seguimiento.findAll({
-            where: { proyecto_id: Number(proyectoId), alumno_id: Number(alumnoId) },
+            where: whereClause,
             include: [
                 { model: Usuario, as: 'docente', attributes: ['apellido'], required: false },
                 { model: Materia, as: 'materia', attributes: ['id', 'nombre'], required: false },
@@ -148,11 +162,13 @@ exports.obtenerHistorialAlumno = async (req, res) => {
                     include: [{ model: Especialidad, as: 'especialidad_detalle', attributes: ['nombre'], required: false }]
                 }
             ],
+            // Ordenamos por fecha de creación para ver la línea de tiempo más reciente primero
             order: [['created_at', 'DESC']]
         });
 
         res.json({ success: true, data: historial });
     } catch (error) {
+        // En caso de error, retornamos el mensaje correspondiente para el debugging
         res.status(500).json({ success: false, error: error.message });
     }
 };
