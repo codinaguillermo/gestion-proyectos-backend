@@ -1,5 +1,6 @@
 const { Usuario, Rol, Escuela, Especialidad, Proyecto, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const { enviarCorreoAprobacion } = require('../services/email.service');
 
 /**
  * Propósito: Crear un nuevo usuario gestionando transacciones para la relación con escuelas y reglas por rol.
@@ -256,7 +257,7 @@ const listarUsuarios = async (req, res) => {
         const usuarios = await Usuario.findAll({
             where: filtro,
             // Agregamos 'avatar' para que el listado pueda mostrar miniaturas
-            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar', 'especialidad_id'],
+            attributes: ['id', 'nombre', 'apellido', 'email', 'rol_id', 'curso', 'division', 'telefono', 'activo', 'avatar', 'especialidad_id', 'pendiente'],
             include: [
                 { model: Rol, attributes: ['nombre'] },
                 { 
@@ -303,12 +304,99 @@ const resetearMensajesSinLeer = async (req, res) => {
     }
 };
 
-// CORREGIDO: Exportamos explícitamente el nuevo método para que la ruta de Express deje de recibir undefined
+/**
+ * Propósito: Obtener el listado de todos los usuarios que han solicitado cuenta y están marcados en espera de aprobación.
+ * Quién la llama: Invocada por GET /api/usuarios/pendientes desde usuario.routes.js (accesible solo por personal habilitado).
+ * Retorna: Array de objetos que representan solicitudes de cuenta pendientes, incluyendo los datos del rol solicitado.
+ */
+const obtenerPendientes = async (req, res) => {
+    try {
+        const pendientes = await Usuario.findAll({
+            where: { pendiente: true },
+            attributes: ['id', 'nombre', 'apellido', 'email', 'telefono', 'rol_id', 'created_at'],
+            include: [
+                { model: Rol, attributes: ['nombre'] }
+            ],
+            order: [['created_at', 'DESC']]
+        });
+
+        return res.json(pendientes);
+    } catch (error) {
+        console.error("Error al obtener solicitudes pendientes:", error);
+        return res.status(500).json({ error: 'Error al recuperar la lista de solicitudes pendientes' });
+    }
+};
+
+/**
+ * Propósito: Aprobar una solicitud de cuenta de un nuevo usuario, cambiándola a estado activo, quitando la marca de pendiente, asignando una contraseña inicial y despachando un correo de notificación institucional de bienvenida.
+ * Quién la llama: Invocada por PUT /api/usuarios/:id/aprobar desde la nueva interfaz de gestión de solicitudes pendientes en el Frontend.
+ * Retorna: Objeto JSON confirmando la aprobación del acceso para el usuario con éxito, adjuntando el estado de envío del correo.
+ */
+const aprobarSolicitud = async (req, res) => {
+    try {
+        const usuarioLogueado = req.usuario;
+        const { id } = req.params;
+        const { password } = req.body; // El docente/admin puede optar por pasar una clave o usar una genérica
+
+        // Seguridad: Alumnos jamás pueden aprobar cuentas
+        if (Number(usuarioLogueado.rol_id) === 3) {
+            return res.status(403).json({ mensaje: "No tienes permisos para aprobar solicitudes de cuenta." });
+        }
+
+        const usuario = await Usuario.findByPk(id, {
+            include: [{ model: Rol, attributes: ['nombre'] }]
+        });
+        
+        if (!usuario) {
+            return res.status(404).json({ mensaje: "La solicitud de usuario especificada no se encuentra en el servidor." });
+        }
+
+        const passwordTemporal = password && password.trim() !== "" ? password.trim() : 'Gepres1234*';
+
+        // Se quita el estado pendiente, se activa el acceso, y se setea la contraseña temporal
+        usuario.pendiente = false;
+        usuario.activo = true;
+        usuario.password_hash = passwordTemporal;
+
+        await usuario.save();
+
+        // Disparamos el envío de correo de bienvenida al usuario aprobado
+        const nombreRol = usuario.rol ? usuario.rol.nombre : (Number(usuario.rol_id) === 2 ? 'Docente' : 'Alumno');
+        const resultadoEmail = await enviarCorreoAprobacion(
+            usuario.email,
+            usuario.nombre,
+            usuario.apellido,
+            nombreRol,
+            passwordTemporal
+        );
+
+        // Construimos el mensaje de retorno según el resultado de la mensajería
+        let mensajeFinal = `La cuenta de ${usuario.nombre} ${usuario.apellido} ha sido aprobada y habilitada con éxito.`;
+        if (!resultadoEmail.success) {
+            mensajeFinal += ` (Nota: ${resultadoEmail.mensaje})`;
+        } else {
+            mensajeFinal += ` Se ha enviado una notificación a ${usuario.email}.`;
+        }
+
+        return res.json({
+            success: true,
+            emailEnviado: resultadoEmail.success,
+            mensaje: mensajeFinal
+        });
+    } catch (error) {
+        console.error("Error en aprobarSolicitud:", error);
+        return res.status(500).json({ error: "Ocurrió un error al intentar aprobar la cuenta solicitada." });
+    }
+};
+
+// CORREGIDO: Exportamos explícitamente los nuevos métodos para que la ruta de Express los conecte con seguridad
 module.exports = { 
     crearUsuario, 
     listarUsuarios, 
     actualizarUsuario, 
     obtenerUsuarioPorId,
     obtenerListadoProyectosUsuario,
-    resetearMensajesSinLeer
+    resetearMensajesSinLeer,
+    obtenerPendientes,
+    aprobarSolicitud
 };

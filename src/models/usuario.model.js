@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 
 /**
  * usuario.model.js
- * Propósito: Definir la estructura de la entidad de usuarios en la base de datos (con soporte para borrado lógico y hashing de contraseñas).
+ * Propósito: Definir la estructura de la entidad de usuarios en la base de datos (con soporte para borrado lógico, hashing de contraseñas y gestión de estados de aprobación/actividad).
  * Alimentado por: Sequelize ORM y cargado en el inicio de la app / relaciones del backend.
  * Datos que retorna: Instancia del modelo Sequelize 'usuario'.
  */
@@ -27,6 +27,13 @@ const Usuario = sequelize.define('usuario', {
   division: { type: DataTypes.STRING },
   telefono: { type: DataTypes.STRING },
   activo: { type: DataTypes.BOOLEAN, defaultValue: true },
+  
+  // NUEVO CAMPO PARA AUDITAR SOLICITUDES DE CREACIÓN DE CUENTA EN ESPERA DE APROBACIÓN
+  pendiente: { 
+    type: DataTypes.BOOLEAN, 
+    allowNull: false, 
+    defaultValue: false 
+  },
   
   // NUEVO CAMPO PARA EL CONTADOR DE BURBUJA ESTILO FACEBOOK
   mensajes_sin_leer: { 

@@ -2,6 +2,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path'); 
+const fs = require('fs');
+const https = require('https');
 require('dotenv').config();
 
 // 2. IMPORTACIÓN DE MODELOS (Desde el index)
@@ -18,7 +20,7 @@ const escuelaRoutes = require('./src/routes/escuela.routes');
 const statsRoutes = require('./src/routes/stats.routes');
 const sugerenciaRoutes = require('./src/routes/sugerencia.routes');
 const seguimientoRoutes = require('./src/routes/seguimiento.routes');
-const reporteRoutes = require('./src/routes/reporte.routes'); // <-- IMPORTADO ACÁ ARRIBA
+const reporteRoutes = require('./src/routes/reporte.routes'); 
 
 
 // 4. INICIALIZACIÓN DE LA APP
@@ -43,7 +45,7 @@ app.use('/api/escuelas', escuelaRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/sugerencias', sugerenciaRoutes);
 app.use('/api/seguimientos', seguimientoRoutes);
-app.use('/api/reportes', reporteRoutes); // <-- USADO ACÁ
+app.use('/api/reportes', reporteRoutes); 
 
 console.log('--- DEBUG DE EMERGENCIA ---');
 console.log('Contenido de seguimientoRoutes:', seguimientoRoutes);
@@ -54,14 +56,11 @@ console.log('Tipo de dato:', typeof seguimientoRoutes);
 // 1. Decirle a Node dónde están los archivos estáticos del front
 app.use(express.static(path.join(__dirname, 'dist'), {
     setHeaders: (res, filePath) => {
-        // REGLA DE ORO: El index.html NUNCA se cachea en el navegador
         if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.setHeader('Pragma', 'no-cache');
             res.setHeader('Expires', '0');
         } else {
-            // Los archivos con hash (js, css, png) se pueden cachear
-            // porque si cambian, Vite les cambia el nombre
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
     }
@@ -70,7 +69,6 @@ app.use(express.static(path.join(__dirname, 'dist'), {
 // 2. Manejar cualquier ruta que no sea de la API (Solución SPA para Vue Router)
 app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) {
-        // Al enviar el index.html por descarte, también le quitamos el caché
         return res.sendFile(path.join(__dirname, 'dist', 'index.html'), {
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -82,6 +80,13 @@ app.use((req, res, next) => {
     next();
 });
 
+/**
+ * Propósito: Iniciar la conexión con la base de datos MySQL, sincronizar los modelos 
+ * y levantar el servidor web bajo el protocolo HTTPS utilizando los certificados 
+ * locales generados con mkcert en la carpeta 'cert'.
+ * A quién alimenta (quién la llama): Es invocada de forma global al final de este archivo para arrancar el backend completo.
+ * Qué datos retorna: No retorna datos. Inicializa el servicio de red seguro en el puerto 3000 y emite logs por consola sobre el estado de conexión.
+ */
 const startServer = async () => {
     try {
         await sequelize.authenticate();
@@ -93,8 +98,14 @@ const startServer = async () => {
         console.log('✅ Modelos sincronizados con la BD.');
         console.log(`¿US con Borrado Lógico?: ${UserStory.options.paranoid}`);
 
-        app.listen(PORT, () => {
-            console.log(`\n>>> Servidor corriendo en http://localhost:${PORT}`);
+        // Opciones de configuración para montar el servidor HTTPS local con los nuevos nombres
+        const httpsOptions = {
+            key: fs.readFileSync(path.join(__dirname, 'cert', 'key.pem')),
+            cert: fs.readFileSync(path.join(__dirname, 'cert', 'cert.pem'))
+        };
+
+        https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+            console.log(`\n>>> Servidor seguro HTTPS corriendo en https://0.0.0.0:${PORT}`);
             console.log(`>>> Frontend listo. ¡Entrá a probarlo!`);
         });
 

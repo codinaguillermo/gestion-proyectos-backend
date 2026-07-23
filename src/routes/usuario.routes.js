@@ -19,6 +19,13 @@ router.get('/', verificarToken, usuarioController.listarUsuarios);
 
 // --- RUTAS ESPECÍFICAS (ARRIBA) ---
 
+/**
+ * Propósito: Interceptar la solicitud de lectura del listado de cuentas en espera de aprobación antes de que sea evaluada por el comodín numérico /:id.
+ * Quién la llama: Petición HTTP GET enviada desde el Frontend por personal docente o administrativo.
+ * Qué datos retorna: Despacha la ejecución hacia usuarioController.obtenerPendientes.
+ */
+router.get('/pendientes', verificarToken, usuarioController.obtenerPendientes);
+
 // NUEVO: Setea a cero el contador de mensajes sin leer del usuario autenticado
 router.put('/reset-mensajes', verificarToken, usuarioController.resetearMensajesSinLeer);
 
@@ -26,6 +33,13 @@ router.put('/reset-mensajes', verificarToken, usuarioController.resetearMensajes
  * Corregido: Se cambió obtenerListadoProyectosAlumno por obtenerListadoProyectosUsuario
  */
 router.get('/:id/proyectos-asignados', verificarToken, usuarioController.obtenerListadoProyectosUsuario);
+
+/**
+ * Propósito: Capturar la acción de habilitación y aprobación operativa para una cuenta en estado de solicitud pendiente.
+ * Quién la llama: Petición HTTP PUT enviada desde el panel de gestión de solicitudes en el Frontend.
+ * Qué datos retorna: Despacha la ejecución hacia usuarioController.aprobarSolicitud passing el ID de usuario en los parámetros de ruta.
+ */
+router.put('/:id/aprobar', verificarToken, usuarioController.aprobarSolicitud);
 
 // --- RUTAS GENÉRICAS (ABAJO) ---
 

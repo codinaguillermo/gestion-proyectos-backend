@@ -1,0 +1,209 @@
+A continuación, tienes el paso a paso exacto para aplicar cuando enciendan el servidor en la escuela.
+Paso 1: Instalación de Certbot en Debian y emisión del certificado público
+
+Para que un navegador móvil confíe en la conexión de tu DynDNS (por ejemplo, gepres.mi-escuela.dyndns.org), necesitas un certificado firmado por una autoridad pública gratuita como Let's Encrypt. La herramienta oficial para obtenerlo es Certbot.
+
+    Instalar Certbot en Debian:
+    Abre la terminal del servidor Debian y ejecuta:
+    Bash
+
+    sudo apt update
+    sudo apt install certbot -y
+
+    Detener temporalmente PM2 para liberar el puerto:
+    Como no usamos Nginx ni Apache, Certbot operará en modo standalone (servidor autónomo). Para validar tu dominio, Let's Encrypt intentará conectarse desde internet al puerto 80 o 443 de tu servidor. Si Node.js u otro proceso está ocupando el puerto que redirige el router de la escuela, debes detenerlo temporalmente:
+    Bash
+
+    pm2 stop gepres-backend
+
+    (Nota de infraestructura sin suponer: Para que Let's Encrypt pueda validar el reto en modo standalone, el router de la escuela debe tener redirigido el puerto externo 80 hacia la IP local de tu máquina Debian durante la emisión).
+
+    Emitir el certificado público para tu DynDNS:
+    Ejecuta el siguiente comando reemplazando el dominio por el exacto que tienes configurado en tu DynDNS:
+    Bash
+
+    sudo certbot certonly --standalone -d gepres.mi-escuela.dyndns.org
+
+        Si la validación es exitosa, Certbot guardará los archivos oficiales en una ruta protegida de Debian: /etc/letsencrypt/live/gepres.mi-escuela.dyndns.org/.
+
+        Los dos archivos críticos que genera son: fullchain.pem (el certificado público) y privkey.pem (la llave privada).
+
+Paso 2: Creación de la carpeta cert en Debian mediante Enlaces Simbólicos (Symlinks)
+
+Los certificados de Let's Encrypt vencen cada 90 días y se renuevan automáticamente en el sistema operativo. Para no tener que copiar archivos manualmente a la carpeta de tu proyecto cada vez que ocurra una renovación, la mejor práctica en Linux es vincular la carpeta cert de tu backend con la carpeta del sistema mediante enlaces simbólicos.
+
+    Posiciónate dentro de la carpeta raíz de tu proyecto en Debian y crea el directorio cert:
+    Bash
+
+    cd /ruta/absoluta/a/GESTIONPROYECTOS
+    mkdir -p cert
+
+    Crea los enlaces simbólicos respetando exactamente los nombres (cert.pem y key.pem) que espera nuestro código de Node.js:
+    Bash
+
+    sudo ln -sf /etc/letsencrypt/live/gepres.mi-escuela.dyndns.org/fullchain.pem ./cert/cert.pem
+    sudo ln -sf /etc/letsencrypt/live/gepres.mi-escuela.dyndns.org/privkey.pem ./cert/key.pem
+
+    Con esto logramos que cuando Let's Encrypt actualice los archivos en su directorio del sistema, tu carpeta /cert interna refleje los cambios al instante sin tocar el proyecto.
+
+Paso 3: Código completo de app.js listo para ambos entornos
+
+Al estandarizar los nombres de los archivos (cert.pem y key.pem) dentro del subdirectorio /cert en ambos sistemas operativos, este archivo app.js es exactamente el mismo para tu Windows de desarrollo y para el Debian de producción. No requiere refactorización ni condicionales.
+
+Aquí tienes el código completo, manteniendo tu estructura exacta y agregando los comentarios obligatorios detallados en cada función:
+JavaScript
+
+// 1. IMPORTACIONES DE MÓDULOS (Siempre primero)
+const express = require('express');
+const cors = require('cors');
+const path = require('path'); 
+const fs = require('fs');
+const https = require('https');
+require('dotenv').config();
+
+// 2. IMPORTACIÓN DE MODELOS (Desde el index)
+const { sequelize, UserStory, Proyecto, Tarea } = require('./src/models');
+
+// 3. IMPORTACIÓN DE RUTAS
+const authRoutes = require('./src/routes/auth.routes');
+const usuarioRoutes = require('./src/routes/usuario.routes');
+const proyectoRoutes = require('./src/routes/proyecto.routes'); 
+const tareasRoutes = require('./src/routes/tarea.routes');
+const userStoryRoutes = require('./src/routes/userStory.routes');
+const commonRoutes = require('./src/routes/common.routes');
+const escuelaRoutes = require('./src/routes/escuela.routes');
+const statsRoutes = require('./src/routes/stats.routes');
+const sugerenciaRoutes = require('./src/routes/sugerencia.routes');
+const seguimientoRoutes = require('./src/routes/seguimiento.routes');
+const reporteRoutes = require('./src/routes/reporte.routes'); 
+
+// 4. INICIALIZACIÓN DE LA APP
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 5. MIDDLEWARES
+app.use(cors());
+app.use(express.json());
+
+// --- SERVIR ARCHIVOS ESTÁTICOS DE SUBIDAS ---
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// 6. RUTAS DE LA API
+app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/proyectos', proyectoRoutes);
+app.use('/api/tareas', tareasRoutes);
+app.use('/api/user-stories', userStoryRoutes);
+app.use('/api/common', commonRoutes);
+app.use('/api/escuelas', escuelaRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/sugerencias', sugerenciaRoutes);
+app.use('/api/seguimientos', seguimientoRoutes);
+app.use('/api/reportes', reporteRoutes); 
+
+console.log('--- DEBUG DE EMERGENCIA ---');
+console.log('Contenido de seguimientoRoutes:', seguimientoRoutes);
+console.log('Tipo de dato:', typeof seguimientoRoutes);
+
+/**
+ * Propósito: Configurar y aplicar las cabeceras HTTP de control de caché (Cache-Control, Pragma, Expires) de manera diferenciada según la extensión del archivo estático solicitado, evitando que el navegador del cliente almacene en caché la estructura principal de la interfaz (archivos .html) y permitiendo el almacenamiento prolongado para los archivos empaquetados inmutables de código fuente y estilos (.js, .css, imágenes).
+ * A quién alimenta (quién la llama): Es invocada internamente por el middleware express.static cada vez que un cliente web solicita un recurso físico alojado en el directorio 'dist'.
+ * Qué datos retorna: No retorna valores conceptuales (void). Manipula y asigna directamente los encabezados en el objeto de respuesta HTTP (res) emitido hacia el navegador solicitante.
+ */
+const configurarCabecerasEstaticas = (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    } else {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+};
+
+// --- SERVIR EL FRONTEND (Carpeta dist) ---
+
+// 1. Decirle a Node dónde están los archivos estáticos del front
+app.use(express.static(path.join(__dirname, 'dist'), {
+    setHeaders: configurarCabecerasEstaticas
+}));
+
+/**
+ * Propósito: Interceptar y redirigir todas las peticiones web entrantes que no pertenezcan al prefijo '/api' hacia el archivo principal 'index.html' precompilado en el directorio 'dist', asegurando el correcto enrutamiento en el cliente para aplicaciones de página única (SPA) gestionadas por Vue Router sin que el navegador devuelva errores de página no encontrada (404) al refrescar o navegar directamente a una URL interna.
+ * A quién alimenta (quién la llama): Es invocada de manera automática por el motor de enrutamiento de Express como middleware final (fallback) ante cualquier ruta no procesada por los endpoints de la API ni por los archivos estáticos de subidas.
+ * Qué datos retorna: No retorna datos de lógica de negocio; emite como respuesta HTTP el envío físico del archivo de interfaz principal ('dist/index.html') adjuntando cabeceras que prohíben explícitamente su almacenamiento en caché en el navegador del usuario.
+ */
+const manejadorRutasSPA = (req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+        return res.sendFile(path.join(__dirname, 'dist', 'index.html'), {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+    }
+    next();
+};
+
+// 2. Manejar cualquier ruta que no sea de la API (Solución SPA para Vue Router)
+app.use(manejadorRutasSPA);
+
+/**
+ * Propósito: Autenticar la conexión con la base de datos MySQL mediante el ORM Sequelize, sincronizar la estructura de modelos relacionales, leer físicamente los archivos del certificado de seguridad (.pem) almacenados en el subdirectorio local 'cert', e inicializar el servidor web de Node.js bajo el protocolo cifrado HTTPS para escuchar peticiones entrantes en todas las interfaces de red del sistema operativo.
+ * A quién alimenta (quién la llama): Es invocada de manera global y directa al final de este script de arranque para dar inicio a toda la aplicación backend en Node.js (ejecutada localmente con Nodemon o en producción mediante el administrador de procesos PM2).
+ * Qué datos retorna: No retorna una estructura de datos o valor (función asíncrona tipo void). Inicializa el servicio de escucha de red en el puerto configurado (ej. 3000) y emite por la salida estándar (consola de comandos o archivo de logs de PM2) el estado de la conexión a la base de datos y la URL operativa del servidor.
+ */
+const startServer = async () => {
+    try {
+        await sequelize.authenticate();
+        console.log('✅ Conexión a MySQL establecida.');
+
+        // SYNC: 
+        await sequelize.sync({ force: false, alter: false });
+        
+        console.log('✅ Modelos sincronizados con la BD.');
+        console.log(`¿US con Borrado Lógico?: ${UserStory.options.paranoid}`);
+
+        // Opciones de configuración para montar el servidor HTTPS leyendo directamente del directorio /cert
+        const httpsOptions = {
+            key: fs.readFileSync(path.join(__dirname, 'cert', 'key.pem')),
+            cert: fs.readFileSync(path.join(__dirname, 'cert', 'cert.pem'))
+        };
+
+        https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+            console.log(`\n>>> Servidor seguro HTTPS corriendo en https://0.0.0.0:${PORT}`);
+            console.log(`>>> Backend listo y escuchando conexiones.`);
+        });
+
+    } catch (error) {
+        console.error('❌ Error al iniciar:', error);
+    }
+};
+
+startServer();
+
+Paso 4: Puesta en marcha y verificación en PM2
+
+    Reiniciar el proceso en PM2:
+    Una vez actualizado el archivo app.js y con los enlaces simbólicos creados en la carpeta cert, vuelve a levantar el servicio que habías detenido en el Paso 1:
+    Bash
+
+    pm2 restart gepres-backend
+
+    (Si lo habías borrado de la lista, arráncalo con: pm2 start app.js --name "gepres-backend").
+
+    Verificar los registros de salida (Logs):
+    Confirma que Node.js haya leído los certificados de Let's Encrypt correctamente y que el servidor HTTPS haya inicializado sin errores:
+    Bash
+
+    pm2 logs gepres-backend --lines 20
+
+    Deberías ver en la terminal el mensaje: >>> Servidor seguro HTTPS corriendo en [https://0.0.0.0:3000](https://0.0.0.0:3000).
+
+    Guardar el estado:
+    Asegura la persistencia ante posibles reinicios eléctricos del servidor de la escuela:
+    Bash
+
+    pm2 save
+
+A partir de ese momento, cuando ingresen desde un celular conectado al 4G o desde cualquier red externa apuntando a la URL del DynDNS con https://, el navegador validará el certificado público de Let's Encrypt y abrirá la interfaz de GEPRES inmediatamente sin bloqueos ni advertencias.
