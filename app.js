@@ -21,7 +21,7 @@ const statsRoutes = require('./src/routes/stats.routes');
 const sugerenciaRoutes = require('./src/routes/sugerencia.routes');
 const seguimientoRoutes = require('./src/routes/seguimiento.routes');
 const reporteRoutes = require('./src/routes/reporte.routes'); 
-
+const configuracionRoutes = require('./src/routes/configuracion.routes'); // NUEVO v3.0.0: Rutas para configuración global
 
 // 4. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -46,6 +46,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/sugerencias', sugerenciaRoutes);
 app.use('/api/seguimientos', seguimientoRoutes);
 app.use('/api/reportes', reporteRoutes); 
+app.use('/api/configuraciones', configuracionRoutes); // NUEVO v3.0.0: Montaje del endpoint global
 
 console.log('--- DEBUG DE EMERGENCIA ---');
 console.log('Contenido de seguimientoRoutes:', seguimientoRoutes);

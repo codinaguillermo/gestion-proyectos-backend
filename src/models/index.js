@@ -20,6 +20,9 @@ const CalificacionProyecto = require('./calificacionProyecto.model');
 // NUEVO MODELO v2.7.0: Entidad para el desglose curricular por especialidad
 const Materia = require('./materia.model');
 
+// NUEVO MODELO v3.0.0: Entidad para variables globales del sistema (Configuraciones / Año Lectivo)
+const Configuracion = require('./Configuracion.model.js')(sequelize, DataTypes);
+
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
 const EstadoUS = require('./estadoUS.model.js');
@@ -219,5 +222,6 @@ module.exports = {
   NotaDocente,
   HitoEvaluacion,
   CalificacionProyecto,
-  Materia
+  Materia,
+  Configuracion
 };

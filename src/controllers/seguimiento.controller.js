@@ -2,13 +2,13 @@ const { Seguimiento, Usuario, Proyecto, Escuela, Especialidad, Materia } = requi
 
 /**
  * @función crearSeguimiento
- * @propósito Registra una nueva calificación cuantitativa (1 al 10) y observación pedagógica asociada a una materia específica, incluyendo la fecha manual.
+ * @propósito Registra una nueva calificación cuantitativa (1 al 10) y observación pedagógica asociada a una materia específica, incluyendo la fecha manual y el año lectivo.
  * @alimenta SeguimientoModal.vue (Formulario de carga de notas)
  * @retorna {Object} JSON con { success: true, data: Objeto de seguimiento creado } o estado de error.
  */
 exports.crearSeguimiento = async (req, res) => {
     try {
-        const { proyecto_id, alumno_id, materia_id, desempeno, observacion, fecha_evaluacion } = req.body;
+        const { proyecto_id, alumno_id, materia_id, desempeno, observacion, fecha_evaluacion, anio_lectivo } = req.body;
         const docente = req.user || req.usuario; 
         
         if (!docente || !docente.id) {
@@ -21,6 +21,7 @@ exports.crearSeguimiento = async (req, res) => {
 
         if (!materia_id) return res.status(400).json({ success: false, error: "La materia es obligatoria." });
         if (!fecha_evaluacion) return res.status(400).json({ success: false, error: "La fecha de evaluación es obligatoria." });
+        if (!anio_lectivo) return res.status(400).json({ success: false, error: "El año lectivo es obligatorio." });
 
         const valorNota = parseFloat(desempeno);
         if (isNaN(valorNota) || valorNota <= 0 || valorNota > 10) {
@@ -28,7 +29,14 @@ exports.crearSeguimiento = async (req, res) => {
         }
 
         const nuevo = await Seguimiento.create({
-            proyecto_id, alumno_id, docente_id: docente.id, materia_id, desempeno: valorNota, observacion, fecha_evaluacion
+            proyecto_id, 
+            alumno_id, 
+            docente_id: docente.id, 
+            materia_id, 
+            anio_lectivo: Number(anio_lectivo), // Se incluye y parsea el año lectivo recibido del modal
+            desempeno: valorNota, 
+            observacion, 
+            fecha_evaluacion
         });
 
         res.status(201).json({ success: true, data: nuevo });
@@ -46,7 +54,7 @@ exports.crearSeguimiento = async (req, res) => {
 exports.actualizarSeguimiento = async (req, res) => {
     try {
         const { id } = req.params;
-        const { desempeno, observacion, fecha_evaluacion } = req.body;
+        const { desempeno, observacion, fecha_evaluacion, anio_lectivo } = req.body;
         
         const seguimiento = await Seguimiento.findByPk(id);
         if (!seguimiento) return res.status(404).json({ success: false, error: "Registro no encontrado." });
@@ -61,7 +69,8 @@ exports.actualizarSeguimiento = async (req, res) => {
         await seguimiento.update({
             desempeno: valorNota,
             observacion,
-            fecha_evaluacion
+            fecha_evaluacion,
+            ...(anio_lectivo && { anio_lectivo: Number(anio_lectivo) })
         });
 
         res.json({ success: true, data: seguimiento });
@@ -140,10 +149,8 @@ exports.obtenerHistorialAlumno = async (req, res) => {
     try {
         const { proyectoId, alumnoId } = req.params;
 
-        // Construimos el filtro dinámicamente según el parámetro recibido
         let whereClause = { alumno_id: Number(alumnoId) };
         
-        // Si no se solicita 'todos', aplicamos el filtro por proyecto para mantener compatibilidad
         if (proyectoId !== 'todos') {
             whereClause.proyecto_id = Number(proyectoId);
         }
@@ -162,13 +169,11 @@ exports.obtenerHistorialAlumno = async (req, res) => {
                     include: [{ model: Especialidad, as: 'especialidad_detalle', attributes: ['nombre'], required: false }]
                 }
             ],
-            // Ordenamos por fecha de creación para ver la línea de tiempo más reciente primero
             order: [['created_at', 'DESC']]
         });
 
         res.json({ success: true, data: historial });
     } catch (error) {
-        // En caso de error, retornamos el mensaje correspondiente para el debugging
         res.status(500).json({ success: false, error: error.message });
     }
 };

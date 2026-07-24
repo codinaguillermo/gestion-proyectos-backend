@@ -4,7 +4,7 @@ const { sequelize } = require('../config/db');
 /**
  * @modelo Seguimiento
  * @propósito Registrar observaciones pedagógicas, conceptuales y actitudinales de alumnos individuales segmentadas por materia y fecha.
- * @comentario Mantiene integridad referencial física con Proyecto, Alumno (Usuario), Docente (Usuario) y Materias.
+ * @comentario Mantiene integrity referencial física con Proyecto, Alumno (Usuario), Docente (Usuario) y Materias.
  * @alimenta Seguimiento.controller.js, SeguimientoModal.vue y el Monitor de Desempeño.
  */
 const Seguimiento = sequelize.define('seguimiento', {
@@ -31,6 +31,23 @@ const Seguimiento = sequelize.define('seguimiento', {
     allowNull: false,
     comment: 'Asignatura específica a la que corresponde la nota conceptual (v2.7.0)',
     references: { model: 'materias', key: 'id' }
+  },
+  
+  /**
+   * @campo anio_lectivo
+   * @propósito Aislar cronológicamente las calificaciones del alumno por ciclo escolar (GEPRES v3.0.0).
+   * @alimenta Filtros históricos en vistas curriculares, reportes anuales y libretas del preceptor.
+   * @retorna Año numérico entero de 4 dígitos (ej: 2026).
+   */
+  anio_lectivo: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: 'Ciclo lectivo al que pertenece la evaluación académica (v3.0.0)',
+    validate: {
+      isInt: true,
+      min: 2020,
+      max: 2050
+    }
   },
   
   /**
@@ -74,7 +91,13 @@ const Seguimiento = sequelize.define('seguimiento', {
   underscored: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
-  deletedAt: 'deleted_at'
+  deletedAt: 'deleted_at',
+  indexes: [
+    {
+      name: 'idx_seguimientos_anio_lectivo',
+      fields: ['anio_lectivo']
+    }
+  ]
 });
 
 module.exports = Seguimiento;

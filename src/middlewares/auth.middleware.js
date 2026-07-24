@@ -39,4 +39,25 @@ const verificarToken = async (req, res, next) => {
     }
 };
 
-module.exports = { verificarToken };
+/**
+ * Propósito: Verificar que el usuario autenticado posea rol de Administrador.
+ * Quién la llama: Se usa como middleware secundario en rutas sensibles (ej: configuraciones globales).
+ * Retorna: Llama a next() si es admin, o responde con 403 si no tiene privilegios.
+ */
+const esAdmin = (req, res, next) => {
+    // Asumiendo que el modelo Usuario incluye la relación con Rol o un campo rol_id / rol
+    // Verificamos si el usuario cargado en req.usuario tiene permisos administrativos
+    if (req.usuario && (req.usuario.rol_id === 1 || (req.usuario.rol && req.usuario.rol.nombre === 'Administrador'))) {
+        return next();
+    }
+    
+    return res.status(403).json({
+        success: false,
+        mensaje: 'Acceso denegado. Se requieren privilegios de Administrador para realizar esta acción.'
+    });
+};
+
+module.exports = { 
+    verificarToken, 
+    esAdmin 
+};
