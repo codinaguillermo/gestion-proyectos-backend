@@ -83,10 +83,11 @@ app.use((req, res, next) => {
 
 /**
  * Propósito: Iniciar la conexión con la base de datos MySQL, sincronizar los modelos 
- * y levantar el servidor web bajo el protocolo HTTPS utilizando los certificados 
- * locales generados con mkcert en la carpeta 'cert'.
- * A quién alimenta (quién la llama): Es invocada de forma global al final de este archivo para arrancar el backend completo.
- * Qué datos retorna: No retorna datos. Inicializa el servicio de red seguro en el puerto 3000 y emite logs por consola sobre el estado de conexión.
+ * y levantar dinámicamente el servidor web. Si detecta la variable de entorno 'USE_LOCAL_HTTPS=true', 
+ * levanta un servidor HTTPS usando certificados locales de desarrollo. Si no existe, 
+ * arranca en modo HTTP estándar (texto plano) ideal para producción detrás del proxy inverso Nginx.
+ * A quién alimenta: Es invocada de forma global al final de este archivo para arrancar el backend completo en cualquier entorno.
+ * Qué datos retorna: No retorna datos. Inicializa el servicio de red en el puerto correspondiente y emite logs por consola informando el modo de conexión.
  */
 const startServer = async () => {
     try {
@@ -99,16 +100,24 @@ const startServer = async () => {
         console.log('✅ Modelos sincronizados con la BD.');
         console.log(`¿US con Borrado Lógico?: ${UserStory.options.paranoid}`);
 
-        // Opciones de configuración para montar el servidor HTTPS local con los nuevos nombres
-        const httpsOptions = {
-            key: fs.readFileSync(path.join(__dirname, 'cert', 'key.pem')),
-            cert: fs.readFileSync(path.join(__dirname, 'cert', 'cert.pem'))
-        };
+        // Verificamos si debemos levantar HTTPS local mediante variables de entorno
+        if (process.env.USE_LOCAL_HTTPS === 'true') {
+            const httpsOptions = {
+                key: fs.readFileSync(path.join(__dirname, 'cert', 'key.pem')),
+                cert: fs.readFileSync(path.join(__dirname, 'cert', 'cert.pem'))
+            };
 
-        https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
-            console.log(`\n>>> Servidor seguro HTTPS corriendo en https://0.0.0.0:${PORT}`);
-            console.log(`>>> Frontend listo. ¡Entrá a probarlo!`);
-        });
+            https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+                console.log(`\n>>> [ENTORNO LOCAL] Servidor seguro HTTPS corriendo en https://0.0.0.0:${PORT}`);
+                console.log(`>>> Frontend de desarrollo listo. ¡Entrá a probarlo!`);
+            });
+        } else {
+            // Arranque estándar en texto plano para Producción (Nginx maneja el certificado SSL exterior)
+            app.listen(PORT, '0.0.0.0', () => {
+                console.log(`\n>>> [ENTORNO PRODUCCIÓN] Servidor HTTP corriendo en http://0.0.0.0:${PORT}`);
+                console.log(`>>> Frontend listo (Esperando conexión entrante desde Nginx).`);
+            });
+        }
 
     } catch (error) {
         console.error('❌ Error al iniciar:', error);
