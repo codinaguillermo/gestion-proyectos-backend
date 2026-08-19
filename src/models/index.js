@@ -23,6 +23,9 @@ const Materia = require('./materia.model');
 // NUEVO MODELO v3.0.0: Entidad para variables globales del sistema (Configuraciones / Año Lectivo)
 const Configuracion = require('./Configuracion.model.js')(sequelize, DataTypes);
 
+// NUEVO MODELO v3.1.0: Entidad para el control y seguimiento según cronograma de proyecto
+const SeguimientoCronograma = require('./seguimientoCronograma.model');
+
 // Importación de tablas maestras
 const PrioridadUS = require('./prioridadUS.model.js');
 const EstadoUS = require('./estadoUS.model.js');
@@ -51,22 +54,27 @@ Usuario.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialid
 Especialidad.hasMany(Usuario, { foreignKey: 'especialidad_id' });
 
 // --- RELACIONES NUEVAS v2.7.0: MATERIAS Y ESPECIALIDADES (1:N) ---
-/**
- * Propósito: Vincular curricularmente las materias con su respectiva especialidad técnica.
- * Quién la alimenta: Invocado por controladores de configuración para poblar selects del frontend según el track del proyecto.
- * Qué datos retorna: Relación de pertenencia 1:N (Una especialidad contiene muchas materias).
- */
 Materia.belongsTo(Especialidad, { foreignKey: 'especialidad_id', as: 'especialidad' });
 Especialidad.hasMany(Materia, { foreignKey: 'especialidad_id', as: 'materias' });
 
 // --- RELACIONES REESTRUCTURADAS v2.7.0: SEGUIMIENTO DE ALUMNOS ---
-/**
- * Propósito: Vincular las observaciones pedagógicas individuales con una materia del diseño curricular.
- * Quién la alimenta: Invocada por el controlador al crear o listar seguimientos cualitativos de un alumno.
- * Qué datos retorna: Relación de pertenencia 1:1 (Cada registro de seguimiento corresponde a una única materia).
- */
 Seguimiento.belongsTo(Materia, { foreignKey: 'materia_id', as: 'materia' });
 Materia.hasMany(Seguimiento, { foreignKey: 'materia_id', as: 'seguimientosAsociados' });
+
+// --- RELACIONES NUEVAS: SEGUIMIENTO SEGÚN CRONOGRAMA ---
+/**
+ * Propósito: Vincular cada control de cronograma con su proyecto, materia y docente auditor.
+ * Quién la alimenta: Invocada al consultar o crear controles de avance por proyecto.
+ * Qué datos retorna: Relaciones 1:N y 1:1 para poblar el listado de avances.
+ */
+SeguimientoCronograma.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
+Proyecto.hasMany(SeguimientoCronograma, { foreignKey: 'proyecto_id', as: 'seguimientosCronograma' });
+
+SeguimientoCronograma.belongsTo(Materia, { foreignKey: 'materia_id', as: 'materia' });
+Materia.hasMany(SeguimientoCronograma, { foreignKey: 'materia_id', as: 'cronogramasMateria' });
+
+SeguimientoCronograma.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
+Usuario.hasMany(SeguimientoCronograma, { foreignKey: 'docente_id', as: 'cronogramasAuditados' });
 
 // --- RELACIONES USUARIOS Y ESCUELAS (N:M) ---
 Usuario.belongsToMany(Escuela, { 
@@ -157,7 +165,7 @@ UserStory.belongsToMany(UserStory, {
   otherKey: 'us_id' 
 });
 
-//  DEPENDENCIAS TAREAS (N:M Auto-referencial) ---
+// DEPENDENCIAS TAREAS (N:M Auto-referencial) ---
 Tarea.belongsToMany(Tarea, { 
   through: 'tarea_dependencias', 
   as: 'requisitos', 
@@ -166,7 +174,7 @@ Tarea.belongsToMany(Tarea, {
   timestamps: false 
 });
 
-// --- RELACIONES DE SEGUIMIENTO (Adaptados conceptualmente a seguimientos_alumnos) ---
+// --- RELACIONES DE SEGUIMIENTO (Adaptados a seguimientos_alumnos) ---
 Seguimiento.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
 Proyecto.hasMany(Seguimiento, { foreignKey: 'proyecto_id', as: 'seguimientos' });
 
@@ -176,27 +184,13 @@ Usuario.hasMany(Seguimiento, { foreignKey: 'alumno_id', as: 'seguimientosRecibid
 Seguimiento.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
 Usuario.hasMany(Seguimiento, { foreignKey: 'docente_id', as: 'seguimientosRealizados' });
 
-/**
- * Propósito: Vincular las calificaciones históricas con el Proyecto evaluado.
- * Quién la alimenta: Invocada por controladores al listar o añadir notas a un proyecto.
- * Qué datos retorna: Relación de pertenencia 1:N (Un proyecto tiene muchas calificaciones).
- */
+// --- CALIFICACIONES ---
 CalificacionProyecto.belongsTo(Proyecto, { foreignKey: 'proyecto_id', as: 'proyecto' });
 Proyecto.hasMany(CalificacionProyecto, { foreignKey: 'proyecto_id', as: 'calificaciones' });
 
-/**
- * Propósito: Asociar la nota con su concepto académico de la tabla maestra.
- * Quién la alimenta: Invocada al consultar las calificaciones para renderizar el nombre del hito.
- * Qué datos retorna: Relación 1:1 (Cada calificación pertenece a un hito conceptual).
- */
 CalificacionProyecto.belongsTo(HitoEvaluacion, { foreignKey: 'hito_id', as: 'hito_detalle' });
 HitoEvaluacion.hasMany(CalificacionProyecto, { foreignKey: 'hito_id' });
 
-/**
- * Propósito: Rastrear de forma auditable qué Docente (Usuario) asentó la calificación.
- * Quién la alimenta: Utilizada en reportes de auditoría docente e historial de calificaciones.
- * Qué datos retorna: Relación de pertenencia 1:1 (Cada nota posee un docente calificador asignado).
- */
 CalificacionProyecto.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'docente_calificador' });
 Usuario.hasMany(CalificacionProyecto, { foreignKey: 'usuario_id' });
 
@@ -223,5 +217,6 @@ module.exports = {
   HitoEvaluacion,
   CalificacionProyecto,
   Materia,
-  Configuracion
+  Configuracion,
+  SeguimientoCronograma
 };
