@@ -1,4 +1,4 @@
-const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory } = require('../models');
+const { Tarea, Proyecto, Usuario, Prioridad, EstadoTarea, TipoTarea, EstadoProyecto, UserStory, HistorialTarea } = require('../models');
 
 /**
  * Helper de permisos: Admin, Docente o Alumno Integrante pasan.
@@ -21,34 +21,26 @@ const verificarPermisoProyecto = async (proyectoId, usuario) => {
 // --- crearTarea en tarea.controller.js ---
 const crearTarea = async (req, res) => {
     try {
-        const { 
-            titulo, descripcion, usId, proyecto_id, 
-            tipo_id, prioridad_id, responsable_id, horas_estimadas 
-        } = req.body;
+        const { titulo, descripcion, usId, proyecto_id, tipo_id, prioridad_id, responsable_id, horas_estimadas } = req.body;
 
-        // Validación de IDs
-        if (!usId || !proyecto_id) {
-            return res.status(400).json({ mensaje: "usId y proyecto_id son obligatorios." });
-        }
+        if (!usId || !proyecto_id) return res.status(400).json({ mensaje: "usId y proyecto_id son obligatorios." });
 
-        // 1. CREAMOS LA TAREA (Sin includes para que no falle el INSERT)
         const nuevaTarea = await Tarea.create({
-            titulo,
-            descripcion,
-            proyecto_id: Number(proyecto_id),
-            usId: Number(usId),
-            tipo_id: tipo_id || 1,
-            prioridad_id: prioridad_id || 1,
-            estado_id: 1, 
-            responsable_id: responsable_id || null,
-            horas_estimadas: horas_estimadas || 0,
-            horasReales: 0
+            titulo, descripcion, proyecto_id: Number(proyecto_id), usId: Number(usId),
+            tipo_id: tipo_id || 1, prioridad_id: prioridad_id || 1, estado_id: 1, 
+            responsable_id: responsable_id || null, horas_estimadas: horas_estimadas || 0, horasReales: 0
         });
 
-        /**
-         * 2. RECARGAMOS con los alias que SI funcionan en tu código:
-         * 'prioridad_detalle', 'estado_detalle', 'responsable'
-         */
+        // REGISTRO DE AUDITORÍA (Primer Log)
+        if (req.usuario) {
+            await HistorialTarea.create({
+                tarea_id: nuevaTarea.id,
+                usuario_id: req.usuario.id,
+                estado_id: 1,
+                fecha_registro: new Date()
+            });
+        }
+
         const tareaCompleta = await Tarea.findByPk(nuevaTarea.id, {
             include: [
                 { model: Prioridad, as: 'prioridad_detalle' },
@@ -60,11 +52,7 @@ const crearTarea = async (req, res) => {
         return res.status(201).json(tareaCompleta);
     } catch (error) {
         console.error("Error en crearTarea:", error);
-        // Si el include falla, al menos devolvemos la tarea pelada para que no se pierda el registro
-        return res.status(500).json({ 
-            mensaje: "La tarea se creó pero hubo un error al cargar detalles", 
-            error: error.message 
-        });
+        return res.status(500).json({ mensaje: "Error al cargar detalles", error: error.message });
     }
 };
 
@@ -108,32 +96,32 @@ const obtenerTareasProyecto = async (req, res) => {
 const obtenerTareaPorId = async (req, res) => {
     try {
         const { id } = req.params;
-        
-        // 1. Buscamos la tarea
         const tarea = await Tarea.findByPk(id, {
-            // Traemos las relaciones con los alias que SI existen
             include: [
                 { model: EstadoTarea, as: 'estado_detalle' },
                 { model: Prioridad, as: 'prioridad_detalle' },
                 { model: TipoTarea, as: 'tipo_detalle' },
                 { model: Usuario, as: 'responsable', attributes: ['id', 'nombre', 'apellido'] },
-                // Si 'requisitos' te da error, comentá esta línea para probar
-                { model: Tarea, as: 'requisitos', through: { attributes: [] } }
+                { model: Tarea, as: 'requisitos', through: { attributes: [] } },
+                // INYECTAMOS EL HISTORIAL PARA EL FRONTEND
+                { 
+                    model: HistorialTarea, as: 'historial',
+                    include: [
+                        { model: Usuario, as: 'usuario_detalle', attributes: ['id', 'nombre', 'apellido'] },
+                        { model: EstadoTarea, as: 'estado_detalle' }
+                    ]
+                }
+            ],
+            order: [
+                [{ model: HistorialTarea, as: 'historial' }, 'fecha_registro', 'DESC']
             ]
         });
 
-        if (!tarea) {
-            return res.status(404).json({ mensaje: "Tarea no encontrada" });
-        }
-
+        if (!tarea) return res.status(404).json({ mensaje: "Tarea no encontrada" });
         return res.json(tarea);
     } catch (error) {
         console.error("ERROR EN obtenerTareaPorId:", error);
-        // Enviamos el mensaje de error real para saber exactamente qué alias falta
-        return res.status(500).json({ 
-            mensaje: "Error interno del servidor", 
-            detalle: error.message 
-        });
+        return res.status(500).json({ mensaje: "Error interno", detalle: error.message });
     }
 };
 
@@ -152,12 +140,19 @@ const actualizarTarea = async (req, res) => {
 
         await Tarea.update({
             titulo, descripcion, estado_id, prioridad_id, responsable_id, tipo_id,
-            horas_estimadas, cumpleAceptacion, testeado, documentado, utilizable, 
-            horasReales,
-            criteriosAceptacion: criterios_aceptacion, // Mapeo al field del modelo
-            comentarioCierre: comentario_cierre,       // Mapeo al field del modelo
-            linkEvidencia: link_evidencia              // Mapeo al field del modelo
+            horas_estimadas, cumpleAceptacion, testeado, documentado, utilizable, horasReales,
+            criteriosAceptacion: criterios_aceptacion, comentarioCierre: comentario_cierre, linkEvidencia: link_evidencia
         }, { where: { id } });
+
+        // REGISTRO DE AUDITORÍA
+        if (req.usuario) {
+            await HistorialTarea.create({
+                tarea_id: id,
+                usuario_id: req.usuario.id,
+                estado_id: estado_id || tarea.estado_id,
+                fecha_registro: new Date()
+            });
+        }
 
         return res.json({ mensaje: "Tarea actualizada" });
     } catch (error) {

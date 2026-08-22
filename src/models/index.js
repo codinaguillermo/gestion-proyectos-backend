@@ -34,7 +34,7 @@ const EstadoTarea = require('./estadoTarea.model.js')(sequelize, DataTypes);
 const TipoTarea = require('./tipoTarea.model.js')(sequelize, DataTypes);
 const Seguimiento = require('./seguimiento.model'); 
 const NotaDocente = require("./notaDocente.model.js")(sequelize, DataTypes);
-
+const HistorialTarea = require('./historialTarea.model');
 // --- NUEVO v1.2.0: Sugerencias para mejoras de GEPRES ---
 const Sugerencia = require("./sugerencia.model.js")(sequelize, DataTypes);
 
@@ -194,6 +194,13 @@ HitoEvaluacion.hasMany(CalificacionProyecto, { foreignKey: 'hito_id' });
 CalificacionProyecto.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'docente_calificador' });
 Usuario.hasMany(CalificacionProyecto, { foreignKey: 'usuario_id' });
 
+// --- RELACIONES HISTORIAL TAREA ---
+Tarea.hasMany(HistorialTarea, { foreignKey: 'tarea_id', as: 'historial' });
+HistorialTarea.belongsTo(Tarea, { foreignKey: 'tarea_id' });
+
+HistorialTarea.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario_detalle' });
+HistorialTarea.belongsTo(EstadoTarea, { foreignKey: 'estado_id', as: 'estado_detalle' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -218,5 +225,6 @@ module.exports = {
   CalificacionProyecto,
   Materia,
   Configuracion,
-  SeguimientoCronograma
+  SeguimientoCronograma,
+  HistorialTarea
 };
