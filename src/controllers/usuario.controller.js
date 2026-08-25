@@ -373,6 +373,8 @@ const aprobarSolicitud = async (req, res) => {
         // Construimos el mensaje de retorno según el resultado de la mensajería
         let mensajeFinal = `La cuenta de ${usuario.nombre} ${usuario.apellido} ha sido aprobada y habilitada con éxito.`;
         if (!resultadoEmail.success) {
+            // Agregamos este log para cazar el error crudo en la consola de Debian
+            console.error(`[SMTP ERROR] Falla al enviar correo a ${usuario.email}. Detalle del servicio:`, resultadoEmail);
             mensajeFinal += ` (Nota: ${resultadoEmail.mensaje})`;
         } else {
             mensajeFinal += ` Se ha enviado una notificación a ${usuario.email}.`;

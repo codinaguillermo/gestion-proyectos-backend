@@ -122,11 +122,15 @@ Por favor, no respondas directamente a esta dirección de correo.
 
     } catch (error) {
         // Capturamos el error sin propagar una excepción para no cortar la transacción en la Base de Datos
-        console.warn(`[EMAIL SERVICE - ADVERTENCIA] No se pudo enviar el correo a ${emailDestino}:`, error.message);
+        
+        // MODIFICACIÓN CLAVE: Imprimimos el objeto 'error' completo, no solo el mensaje. 
+        // Esto revelará si es un ETIMEDOUT (Firewall bloqueando puerto 465) o un rechazo de credenciales.
+        console.error(`[EMAIL SERVICE - ERROR CRÍTICO SMTP] Falla de conexión o envío al intentar notificar a ${emailDestino}. Detalles completos del fallo:`, error);
+        
         return { 
             success: false, 
-            mensaje: 'La cuenta fue aprobada en el sistema, pero el envío del correo de notificación falló (revisar credenciales o límites SMTP).',
-            error: error.message 
+            mensaje: 'La cuenta fue aprobada en el sistema, pero el envío del correo de notificación falló (revisar consola para detalles de firewall o SMTP).',
+            error: error.code || error.message // Capturamos el código exacto de red (ej: 'ECONNREFUSED' o 'ETIMEDOUT')
         };
     }
 };
