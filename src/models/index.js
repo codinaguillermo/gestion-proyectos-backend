@@ -38,6 +38,10 @@ const HistorialTarea = require('./historialTarea.model');
 // --- NUEVO v1.2.0: Sugerencias para mejoras de GEPRES ---
 const Sugerencia = require("./sugerencia.model.js")(sequelize, DataTypes);
 
+// --- para V4.1.0   - control de asistencia
+const Asistencia = require('./asistencia.model');
+
+
 // --- RELACIONES SUGERENCIAS ---
 Sugerencia.belongsTo(Usuario, {
   foreignKey: "usuario_id",
@@ -201,6 +205,26 @@ HistorialTarea.belongsTo(Tarea, { foreignKey: 'tarea_id' });
 HistorialTarea.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario_detalle' });
 HistorialTarea.belongsTo(EstadoTarea, { foreignKey: 'estado_id', as: 'estado_detalle' });
 
+
+
+// --- RELACIONES NUEVAS: ASISTENCIA DE ALUMNOS ---   v4.1.0
+/**
+ * Propósito: Vincular cada registro de asistencia con su alumno, materia, escuela y docente auditor.
+ * Quién la alimenta: Invocada al consultar listados de presentismo y armar reportes históricos.
+ * Qué datos retorna: Relaciones 1:N que asocian los registros inmutables con las tablas maestras.
+ */
+Asistencia.belongsTo(Usuario, { foreignKey: 'alumno_id', as: 'alumno' });
+Usuario.hasMany(Asistencia, { foreignKey: 'alumno_id', as: 'asistenciasRegistradas' });
+
+Asistencia.belongsTo(Usuario, { foreignKey: 'docente_id', as: 'docente' });
+Usuario.hasMany(Asistencia, { foreignKey: 'docente_id', as: 'asistenciasTomadas' });
+
+Asistencia.belongsTo(Materia, { foreignKey: 'materia_id', as: 'materia' });
+Materia.hasMany(Asistencia, { foreignKey: 'materia_id', as: 'registrosAsistencia' });
+
+Asistencia.belongsTo(Escuela, { foreignKey: 'escuela_id', as: 'escuela' });
+Escuela.hasMany(Asistencia, { foreignKey: 'escuela_id', as: 'asistenciasEscuela' });
+
 module.exports = {
   sequelize,
   Usuario,
@@ -226,5 +250,6 @@ module.exports = {
   Materia,
   Configuracion,
   SeguimientoCronograma,
-  HistorialTarea
+  HistorialTarea,
+  Asistencia
 };
