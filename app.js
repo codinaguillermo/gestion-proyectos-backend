@@ -24,6 +24,7 @@ const reporteRoutes = require('./src/routes/reporte.routes');
 const configuracionRoutes = require('./src/routes/configuracion.routes');
 const seguimientoCronogramaRoutes = require('./src/routes/seguimientoCronograma.routes'); // NUEVO: Rutas para control de cronograma
 const asistenciaRoutes = require('./src/routes/asistencia.routes'); // <-- AGREGADO: Rutas para el registro de asistencias
+const reporteAsistenciaRoutes = require('./src/routes/reporteAsistencia.routes'); // <-- AGREGADO: Rutas para el informe de asistencias
 
 // 4. INICIALIZACIÓN DE LA APP
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api/seguimientos', seguimientoRoutes);
 app.use('/api/reportes', reporteRoutes); 
 app.use('/api/configuraciones', configuracionRoutes); 
 app.use('/api/asistencias', asistenciaRoutes); // <-- AGREGADO: Montaje de las rutas de asistencia
+app.use('/api/asistencia/reporteasistencia', reporteAsistenciaRoutes); // <-- AGREGADO: Montaje de las rutas de reporte de asistencias
 app.use('/api', seguimientoCronogramaRoutes); // NUEVO: Montaje de las rutas de cronograma
 
 console.log('--- DEBUG DE EMERGENCIA ---');
