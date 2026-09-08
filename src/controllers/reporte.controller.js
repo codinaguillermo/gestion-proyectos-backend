@@ -1,4 +1,5 @@
 const { Usuario, Escuela, Seguimiento, Materia } = require('../models');
+const { Op } = require('sequelize');
 
 // ¡ATENCIÓN GUILLE! 
 // Reemplazá este número por el ID real que tenga el rol "Alumno" en tu tabla 'roles'.
@@ -61,13 +62,13 @@ exports.obtenerFiltrosPlanilla = async (req, res) => {
 
 /**
  * @función generarDatosPlanillaExcel
- * @propósito Consultar la BD, pivotar las calificaciones usando FECHA_EVALUACION (manual) como columnas dinámicas y calcular promedio.
+ * @propósito Consultar la BD, pivotar las calificaciones usando FECHA_EVALUACION (manual) como columnas dinámicas y calcular promedio respetando año y cuatrimestre.
  * @quien_la_llama El frontend (ExportarNotasModal.vue) al hacer clic en el botón "Generar Excel".
  * @retorna {Object} JSON con { success: true, data: Array de objetos purificados }
  */
 exports.generarDatosPlanillaExcel = async (req, res) => {
     try {
-        const { escuela_id, curso, division, materia_id } = req.body;
+        const { escuela_id, curso, division, materia_id, anio_lectivo, cuatrimestre } = req.body;
 
         if (!escuela_id || !curso || !division || !materia_id) {
             return res.status(400).json({ success: false, error: "Debe seleccionar escuela, curso, división y materia." });
@@ -75,6 +76,36 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
 
         const materiaDatos = await Materia.findByPk(materia_id, { attributes: ['nombre'] });
         const nombreMateria = materiaDatos ? materiaDatos.nombre : 'Materia Desconocida';
+
+        // CONSTRUCCIÓN DINÁMICA DE LOS FILTROS DE FECHA Y AÑO LECTIVO
+        const whereSeguimiento = { materia_id: materia_id };
+
+        if (anio_lectivo) {
+            whereSeguimiento.anio_lectivo = Number(anio_lectivo);
+        }
+
+        // Si se especifica un cuatrimestre, calculamos el rango dinámico adaptado al año lectivo seleccionado
+        if (cuatrimestre) {
+            const ConfigModel = Seguimiento.sequelize.models.configuracion || Seguimiento.sequelize.models.Configuracion;
+            if (ConfigModel) {
+                const cfgInicio = await ConfigModel.findOne({ where: { nombre: `cuatrimestre_${cuatrimestre}_inicio` } });
+                const cfgFin = await ConfigModel.findOne({ where: { nombre: `cuatrimestre_${cuatrimestre}_fin` } });
+                
+                const anioBase = anio_lectivo || new Date().getFullYear();
+
+                if (cfgInicio && cfgInicio.valor && cfgFin && cfgFin.valor) {
+                    const partesInicio = cfgInicio.valor.split('-');
+                    const partesFin = cfgFin.valor.split('-');
+                    
+                    const desde = `${anioBase}-${partesInicio[1]}-${partesInicio[2]}`;
+                    const hasta = `${anioBase}-${partesFin[1]}-${partesFin[2]}`;
+
+                    whereSeguimiento.fecha_evaluacion = {
+                        [Op.between]: [desde, hasta]
+                    };
+                }
+            }
+        }
 
         const alumnos = await Usuario.findAll({
             where: {
@@ -94,9 +125,8 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
                 {
                     model: Seguimiento,
                     as: 'seguimientosRecibidos',
-                    // CORRECCIÓN: Solicitamos explícitamente fecha_evaluacion
-                    attributes: ['desempeno', 'fecha_evaluacion'],
-                    where: { materia_id: materia_id }, 
+                    attributes: ['desempeno', 'fecha_evaluacion', 'anio_lectivo'],
+                    where: whereSeguimiento,
                     required: false 
                 }
             ],
@@ -112,7 +142,6 @@ exports.generarDatosPlanillaExcel = async (req, res) => {
         alumnos.forEach(al => {
             if (al.seguimientosRecibidos && al.seguimientosRecibidos.length > 0) {
                 al.seguimientosRecibidos.forEach(nota => {
-                    // Si la fecha es YYYY-MM-DD, la convertimos a DD/MM/YYYY
                     if (nota.fecha_evaluacion) {
                         const [anio, mes, dia] = nota.fecha_evaluacion.split('-');
                         setFechas.add(`${dia}/${mes}/${anio}`);

@@ -97,8 +97,52 @@ const obtenerTodas = async (req, res) => {
   }
 };
 
+/**
+ * Propósito: Modificar el valor de cualquier parámetro de configuración institucional de manera dinámica por su ID (fechas de cuatrimestres, nombres, etc.).
+ * A quién alimenta (quién la llama): Panel de administración de configuraciones (PUT /api/configuraciones/:id), accionado desde la interfaz web del sistema.
+ * Qué datos retorna: Objeto JSON con la propiedad success (boolean), mensaje de confirmación y el objeto data con la configuración modificada.
+ */
+const actualizarConfiguracion = async (req, res) => {
+  const { id } = req.params;
+  const { valor } = req.body;
+
+  if (valor === undefined || valor === null || String(valor).trim() === '') {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'El campo valor es obligatorio y no puede estar vacío.'
+    });
+  }
+
+  try {
+    const config = await Configuracion.findByPk(id);
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'El parámetro de configuración especificado no existe en la base de datos.'
+      });
+    }
+
+    config.valor = String(valor).trim();
+    await config.save();
+
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Configuración actualizada correctamente.',
+      data: config
+    });
+  } catch (error) {
+    console.error('Error al actualizar el parámetro de configuración:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor al intentar actualizar la configuración.'
+    });
+  }
+};
+
 module.exports = {
   obtenerAnioLectivo,
   actualizarAnioLectivo,
-  obtenerTodas
+  obtenerTodas,
+  actualizarConfiguracion
 };

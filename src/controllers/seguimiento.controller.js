@@ -1,4 +1,5 @@
-const { Seguimiento, Usuario, Proyecto, Escuela, Especialidad, Materia } = require('../models');
+const { Seguimiento, Usuario, Proyecto, Escuela, Especialidad, Materia, sequelize } = require('../models');
+const { Op } = require('sequelize');
 
 /**
  * @función crearSeguimiento
@@ -33,7 +34,7 @@ exports.crearSeguimiento = async (req, res) => {
             alumno_id, 
             docente_id: docente.id, 
             materia_id, 
-            anio_lectivo: Number(anio_lectivo), // Se incluye y parsea el año lectivo recibido del modal
+            anio_lectivo: Number(anio_lectivo), 
             desempeno: valorNota, 
             observacion, 
             fecha_evaluacion
@@ -99,16 +100,72 @@ exports.eliminarSeguimiento = async (req, res) => {
 };
 
 /**
+ * Función auxiliar interna para construir las restricciones de fecha y año lectivo.
+ * Mapea las fechas de los cuatrimestres ajustándolas al año lectivo seleccionado.
+ */
+const construirFiltroPeriodo = async (query) => {
+    const { anio_lectivo, cuatrimestre, fecha_desde, fecha_hasta } = query;
+    let where = {};
+
+    if (anio_lectivo) {
+        where.anio_lectivo = Number(anio_lectivo);
+    }
+
+    let desde = fecha_desde;
+    let hasta = fecha_hasta;
+
+    // Si se especifica un cuatrimestre, buscamos sus rangos y adaptamos el año al anio_lectivo seleccionado
+    if (cuatrimestre) {
+        const ConfigModel = sequelize.models.configuracion || sequelize.models.Configuracion;
+        if (ConfigModel) {
+            const cfgInicio = await ConfigModel.findOne({ where: { nombre: `cuatrimestre_${cuatrimestre}_inicio` } });
+            const cfgFin = await ConfigModel.findOne({ where: { nombre: `cuatrimestre_${cuatrimestre}_fin` } });
+            
+            const anioBase = anio_lectivo || new Date().getFullYear();
+
+            if (cfgInicio && cfgInicio.valor) {
+                // Reemplazamos el año de la configuración por el año lectivo consultado (ej: 2025-07-21)
+                const partesInicio = cfgInicio.valor.split('-'); // [YYYY, MM, DD]
+                desde = `${anioBase}-${partesInicio[1]}-${partesInicio[2]}`;
+            }
+            if (cfgFin && cfgFin.valor) {
+                const partesFin = cfgFin.valor.split('-'); // [YYYY, MM, DD]
+                hasta = `${anioBase}-${partesFin[1]}-${partesFin[2]}`;
+            }
+        }
+    }
+
+    if (desde && hasta) {
+        where.fecha_evaluacion = {
+            [Op.between]: [desde, hasta]
+        };
+    } else if (desde) {
+        where.fecha_evaluacion = { [Op.gte]: desde };
+    } else if (hasta) {
+        where.fecha_evaluacion = { [Op.lte]: hasta };
+    }
+
+    return where;
+};
+
+/**
  * @función obtenerEstadisticasProyecto
- * @propósito Calcula los promedios generales cuantitativos individuales para el monitor de rendimiento.
+ * @propósito Calcula los promedios generales cuantitativos individuales para el monitor de rendimiento, con soporte opcional de filtrado por año y cuatrimestre.
  * @alimenta Monitor de Desempeño en ProyectoConfigView.
  * @retorna {Object} JSON con { success: true, data: Array de objetos con promedios disgregados por alumno }
  */
 exports.obtenerEstadisticasProyecto = async (req, res) => {
     try {
         const { proyectoId } = req.params;
+        
+        // Construir el filtro dinámico basado en query params (anio_lectivo, cuatrimestre, fechas)
+        const filtroPeriodo = await construirFiltroPeriodo(req.query);
+
         const seguimientos = await Seguimiento.findAll({
-            where: { proyecto_id: proyectoId },
+            where: { 
+                proyecto_id: proyectoId,
+                ...filtroPeriodo
+            },
             include: [
                 { model: Usuario, as: 'alumno', attributes: ['nombre', 'apellido'] },
                 { model: Materia, as: 'materia', attributes: ['id', 'nombre'], required: false }
@@ -134,14 +191,12 @@ exports.obtenerEstadisticasProyecto = async (req, res) => {
 };
 
 /**
- * Propósito: Obtiene el historial de calificaciones de un alumno. 
- * Si proyectoId es 'todos', retorna el historial completo de todas las evaluaciones 
- * registradas para el alumno, independientemente del proyecto al que pertenezca.
- * Si se recibe un ID específico, filtra el historial solo para ese proyecto.
+ * Propósito: Obtiene el historial de calificaciones de un alumno filtrado opcionalmente por período lectivo o cuatrimestre. 
+ * Si proyectoId es 'todos', retorna el historial completo de todas las evaluaciones.
  * 
  * Alimenta a: seguimiento.routes.js (endpoint GET /historial/:proyectoId/:alumnoId)
  * 
- * @param {Object} req - Objeto de petición HTTP (espera proyectoId y alumnoId en params).
+ * @param {Object} req - Objeto de petición HTTP (espera proyectoId y alumnoId en params, y opcionalmente anio_lectivo, cuatrimestre en query).
  * @param {Object} res - Objeto de respuesta HTTP.
  * @returns {JSON} success: true y data: array con el historial encontrado.
  */
@@ -154,6 +209,10 @@ exports.obtenerHistorialAlumno = async (req, res) => {
         if (proyectoId !== 'todos') {
             whereClause.proyecto_id = Number(proyectoId);
         }
+
+        // Incorporar el filtro dinámico de año y cuatrimestre / fechas
+        const filtroPeriodo = await construirFiltroPeriodo(req.query);
+        whereClause = { ...whereClause, ...filtroPeriodo };
 
         const historial = await Seguimiento.findAll({
             where: whereClause,
@@ -169,7 +228,7 @@ exports.obtenerHistorialAlumno = async (req, res) => {
                     include: [{ model: Especialidad, as: 'especialidad_detalle', attributes: ['nombre'], required: false }]
                 }
             ],
-            order: [['created_at', 'DESC']]
+            order: [['fecha_evaluacion', 'DESC']]
         });
 
         res.json({ success: true, data: historial });

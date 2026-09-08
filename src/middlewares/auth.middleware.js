@@ -45,9 +45,8 @@ const verificarToken = async (req, res, next) => {
  * Retorna: Llama a next() si es admin, o responde con 403 si no tiene privilegios.
  */
 const esAdmin = (req, res, next) => {
-    // Asumiendo que el modelo Usuario incluye la relación con Rol o un campo rol_id / rol
-    // Verificamos si el usuario cargado en req.usuario tiene permisos administrativos
-    if (req.usuario && (req.usuario.rol_id === 1 || (req.usuario.rol && req.usuario.rol.nombre === 'Administrador'))) {
+    // Verificamos de forma segura comparando el rol numérico (rol_id === 1) o el objeto rol
+    if (req.usuario && (Number(req.usuario.rol_id) === 1 || (req.usuario.rol && req.usuario.rol.nombre === 'Administrador'))) {
         return next();
     }
     
