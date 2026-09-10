@@ -6,6 +6,10 @@ const { verificarToken } = require('../middlewares/auth.middleware');
 const notaRoutes = require('./nota.routes');
 const { Materia } = require('../models'); // Importación directa del modelo v2.7.0
 
+
+router.post('/especialidades', verificarToken, commonCtrl.crearEspecialidad);
+router.put('/especialidades/:id', verificarToken, commonCtrl.actualizarEspecialidad);
+
 // Usamos el objeto commonCtrl para llamar a las funciones
 router.get('/prioridades-us', verificarToken, commonCtrl.getPrioridadesUS);
 router.get('/estados-us', verificarToken, commonCtrl.getEstadosUS);

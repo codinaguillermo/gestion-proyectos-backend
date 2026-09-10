@@ -83,6 +83,47 @@ const listarHitosEvaluacion = async (req, res) => {
     }
 };
 
+// NUEVA: Crear Especialidad
+const crearEspecialidad = async (req, res) => {
+    try {
+        const { nombre, descripcion } = req.body;
+        if (!nombre) {
+            return res.status(400).json({ success: false, error: "El nombre es obligatorio" });
+        }
+        const nueva = await Especialidad.create({
+            nombre: nombre.trim(),
+            descripcion: descripcion ? descripcion.trim() : null
+        });
+        res.status(201).json({ success: true, data: nueva });
+    } catch (error) {
+        console.error("Error al crear especialidad:", error);
+        res.status(500).json({ success: false, error: "Error al crear la especialidad" });
+    }
+};
+
+// NUEVA: Actualizar Especialidad
+const actualizarEspecialidad = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre, descripcion } = req.body;
+        
+        const especialidad = await Especialidad.findByPk(id);
+        if (!especialidad) {
+            return res.status(404).json({ success: false, error: "Especialidad no encontrada" });
+        }
+
+        await especialidad.update({
+            nombre: nombre !== undefined ? nombre.trim() : especialidad.nombre,
+            descripcion: descripcion !== undefined ? (descripcion ? descripcion.trim() : null) : especialidad.descripcion
+        });
+
+        res.json({ success: true, data: especialidad });
+    } catch (error) {
+        console.error("Error al actualizar especialidad:", error);
+        res.status(500).json({ success: false, error: "Error al actualizar la especialidad" });
+    }
+};
+
 // EXPORTACIÓN ÚNICA
 module.exports = { 
     getPrioridadesUS,
@@ -91,5 +132,7 @@ module.exports = {
     listarRoles,
     listarEspecialidades,
     // EXPORTACIÓN v2.6.0: Habilitada para el ruteador común del ecosistema
-    listarHitosEvaluacion
+    listarHitosEvaluacion,
+    crearEspecialidad,
+    actualizarEspecialidad
 };

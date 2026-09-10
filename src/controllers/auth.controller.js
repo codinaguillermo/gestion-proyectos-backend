@@ -9,19 +9,16 @@ const bcrypt = require('bcrypt');
  */
 const solicitarCuenta = async (req, res) => {
     try {
-        // 1. Ahora también extraemos el token del captcha
         const { nombre, apellido, email, telefono, rol_id, curso, division, especialidad_id, recaptchaToken } = req.body;
 
         if (!nombre || !apellido || !email || !telefono || !rol_id) {
             return res.status(400).json({ error: 'Faltan datos', mensaje: 'Nombre, apellido, email, teléfono y tipo de usuario son obligatorios.' });
         }
 
-        // 2. Validamos que el frontend haya enviado el token del Captcha
         if (!recaptchaToken) {
             return res.status(400).json({ error: 'Falta verificación', mensaje: 'Debes confirmar que no eres un robot.' });
         }
 
-        // 3. Verificamos el token con los servidores de Google
         const secretKey = process.env.RECAPTCHA_SECRET_KEY;
         const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
         
@@ -31,8 +28,6 @@ const solicitarCuenta = async (req, res) => {
         if (!recaptchaData.success) {
             return res.status(400).json({ error: 'Captcha inválido', mensaje: 'La verificación de seguridad falló. Por favor, intenta de nuevo.' });
         }
-
-        // --- A PARTIR DE ACÁ EL CÓDIGO SIGUE IGUAL QUE ANTES ---
 
         const rolNum = Number(rol_id);
         if (rolNum !== 2 && rolNum !== 3) {
@@ -84,7 +79,7 @@ const solicitarCuenta = async (req, res) => {
 /**
  * Propósito: Autenticar las credenciales del usuario, verificar si su cuenta está habilitada, generar el token JWT firmado y proveer los datos de sesión junto al contador en tiempo real de solicitudes pendientes si quien ingresa es personal administrativo o docente.
  * Quién la llama: Invocada por POST /api/auth/login desde el formulario de acceso del Frontend.
- * Qué datos retorna: Objeto JSON con el mensaje de éxito, el string del token JWT y el sub-objeto 'usuario' enriquecido para Pinia (incluye rol, avatar, mensajes sin leer y solicitudes pendientes).
+ * Qué datos retorna: Objeto JSON con el mensaje de éxito, el string del token JWT y el sub-objeto 'usuario' enriquecido para Pinia (incluye rol, avatar, mensajes sin leer, solicitudes pendientes y la primera escuela del sistema).
  */
 const login = async (req, res) => {
     try {
@@ -100,7 +95,6 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' }); 
         }
 
-        // Validar estrictamente que la cuenta esté activa (1 / true) antes de cotejar contraseñas
         if (!usuario.activo) {
             return res.status(403).json({ 
                 error: 'Cuenta inactiva', 
@@ -114,7 +108,9 @@ const login = async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
-        // Si es Admin (1) o Docente (2), contamos en la tabla cuántos registros tienen la columna pendiente en true
+        // Traemos el primer registro de la tabla escuelas para asignarlo por defecto en la sesión
+        const escuelaUnica = await Escuela.findOne();
+
         let solicitudesPendientes = 0;
         if (usuario.rol_id === 1 || usuario.rol_id === 2) {
             solicitudesPendientes = await Usuario.count({
@@ -141,7 +137,8 @@ const login = async (req, res) => {
                 rol_id: usuario.rol_id,
                 avatar: usuario.avatar,
                 mensajes_sin_leer: usuario.mensajes_sin_leer,
-                solicitudes_pendientes: solicitudesPendientes
+                solicitudes_pendientes: solicitudesPendientes,
+                escuelas: escuelaUnica ? [escuelaUnica] : []
             }
         });
 
