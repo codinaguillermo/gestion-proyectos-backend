@@ -1,42 +1,55 @@
-const { Usuario } = require('../models');
+const { Usuario, Escuela } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 /**
- * Propósito: Registrar una solicitud de nueva cuenta por parte de un alumno o docente, insertando el registro en estado inactivo, marcado como pendiente de revisión y sin privilegios de acceso inmediatos.
+ * Propósito: Registrar una solicitud de nueva cuenta por parte de un alumno o docente, insertando el registro en estado inactivo, marcado como pendiente de revisión, y capturando datos académicos si corresponde. Asigna automáticamente la única escuela del sistema.
  * Quién la llama: Invocada por POST /api/auth/solicitar-cuenta desde la vista de solicitud en el Frontend.
  * Qué datos retorna: Objeto JSON con el mensaje de confirmación de solicitud procesada o el detalle del error de validación (ej. email duplicado o rol inválido).
  */
 const solicitarCuenta = async (req, res) => {
     try {
-        const { nombre, apellido, email, telefono, rol_id } = req.body;
+        // 1. Ahora también extraemos el token del captcha
+        const { nombre, apellido, email, telefono, rol_id, curso, division, especialidad_id, recaptchaToken } = req.body;
 
         if (!nombre || !apellido || !email || !telefono || !rol_id) {
-            return res.status(400).json({ 
-                error: 'Faltan datos', 
-                mensaje: 'Nombre, apellido, email, teléfono y tipo de usuario son obligatorios.' 
-            });
+            return res.status(400).json({ error: 'Faltan datos', mensaje: 'Nombre, apellido, email, teléfono y tipo de usuario son obligatorios.' });
         }
 
-        // Validar que el rol solicitado sea únicamente Docente (2) o Alumno (3)
+        // 2. Validamos que el frontend haya enviado el token del Captcha
+        if (!recaptchaToken) {
+            return res.status(400).json({ error: 'Falta verificación', mensaje: 'Debes confirmar que no eres un robot.' });
+        }
+
+        // 3. Verificamos el token con los servidores de Google
+        const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${recaptchaToken}`;
+        
+        const recaptchaRes = await fetch(verifyUrl, { method: 'POST' });
+        const recaptchaData = await recaptchaRes.json();
+
+        if (!recaptchaData.success) {
+            return res.status(400).json({ error: 'Captcha inválido', mensaje: 'La verificación de seguridad falló. Por favor, intenta de nuevo.' });
+        }
+
+        // --- A PARTIR DE ACÁ EL CÓDIGO SIGUE IGUAL QUE ANTES ---
+
         const rolNum = Number(rol_id);
         if (rolNum !== 2 && rolNum !== 3) {
-            return res.status(400).json({ 
-                error: 'Rol inválido', 
-                mensaje: 'El tipo de cuenta solicitado no es válido para autogestión.' 
-            });
+            return res.status(400).json({ error: 'Rol inválido', mensaje: 'El tipo de cuenta solicitado no es válido para autogestión.' });
         }
 
-        // Verificar si el correo ya existe en la base de datos (incluso en registros inactivos)
+        if (rolNum === 3) {
+            if (!curso || !division || !especialidad_id) {
+                return res.status(400).json({ error: 'Faltan datos académicos', mensaje: 'Curso, división y especialidad son obligatorios para las cuentas de alumno.' });
+            }
+        }
+
         const existeUsuario = await Usuario.findOne({ where: { email } });
         if (existeUsuario) {
-            return res.status(400).json({ 
-                error: 'Email duplicado', 
-                mensaje: 'El correo electrónico ya se encuentra registrado en el sistema.' 
-            });
+            return res.status(400).json({ error: 'Email duplicado', mensaje: 'El correo electrónico ya se encuentra registrado en el sistema.' });
         }
 
-        // Se inserta en modo inactivo (activo: false), marcado para revisión (pendiente: true) y con clave temporal
         const nuevoUsuario = await Usuario.create({
             nombre,
             apellido,
@@ -46,21 +59,25 @@ const solicitarCuenta = async (req, res) => {
             password_hash: 'SOLICITUD_PENDIENTE_2026', 
             activo: false,
             pendiente: true,
-            especialidad_id: 1, // Por defecto "Ninguna / No definida"
+            especialidad_id: rolNum === 3 ? Number(especialidad_id) : 1, 
+            curso: rolNum === 3 ? curso : null,
+            division: rolNum === 3 ? division : null,
             mensajes_sin_leer: 0
         });
 
+        const escuelaUnica = await Escuela.findOne();
+        if (escuelaUnica) {
+            await nuevoUsuario.setEscuelas([escuelaUnica.id]);
+        }
+
         return res.status(201).json({
             success: true,
-            mensaje: 'Solicitud enviada con éxito. Tu cuenta fue creada en estado inactivo y deberá ser habilitada por un docente o administrador.'
+            mensaje: 'Solicitud enviada con éxito. Tu cuenta fue creada en estado inactivo y deberá ser habilitada por un administrador.'
         });
 
     } catch (error) {
         console.error("Error en solicitarCuenta:", error);
-        return res.status(500).json({ 
-            error: 'Error interno', 
-            mensaje: 'No se pudo procesar la solicitud de cuenta en el servidor.' 
-        });
+        return res.status(500).json({ error: 'Error interno', mensaje: 'No se pudo procesar la solicitud de cuenta en el servidor.' });
     }
 };
 
