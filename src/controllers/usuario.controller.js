@@ -10,29 +10,35 @@ const { enviarCorreoAprobacion } = require('../services/email.service');
 const crearUsuario = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { nombre, apellido, email, password, rol_id, curso, division, telefono, escuelas_ids, especialidad_id } = req.body;
+        const { nombre, apellido, email, password, rol_id, curso, division, telefono, especialidad_id } = req.body;
+        let { escuelas_ids } = req.body;
 
         if (!nombre || !apellido || !email || !password || !rol_id) {
             return res.status(400).json({ error: 'Faltan datos obligatorios' });
         }
 
+        // Si no se envían escuelas_ids desde el frontend, asignamos por defecto la primera escuela registrada
+        if (!escuelas_ids || (Array.isArray(escuelas_ids) && escuelas_ids.length === 0)) {
+            const primeraEscuela = await Escuela.findOne({ order: [['id', 'ASC']], transaction: t });
+            if (!primeraEscuela) {
+                await t.rollback();
+                return res.status(400).json({ error: 'No hay escuelas registradas en el sistema para asociar al usuario.' });
+            }
+            escuelas_ids = [primeraEscuela.id];
+        }
+
         // Regla de Alumnos (Rol 3)
         if (Number(rol_id) === 3) {
-            if (!escuelas_ids || escuelas_ids.length !== 1) {
-                return res.status(400).json({ error: 'Un alumno debe pertenecer a exactamente UNA escuela.' });
-            }
             if (!curso || !division) {
                 return res.status(400).json({ error: 'Curso y división son obligatorios para alumnos.' });
-            }
-        } else {
-            // Regla para Personal (Docente/Admin)
-            if (!escuelas_ids || escuelas_ids.length === 0) {
-                return res.status(400).json({ error: 'El personal debe tener al menos una escuela asignada.' });
             }
         }
 
         const existe = await Usuario.findOne({ where: { email } });
-        if (existe) return res.status(400).json({ error: 'El email ya está registrado' });
+        if (existe) {
+            await t.rollback();
+            return res.status(400).json({ error: 'El email ya está registrado' });
+        }
 
         const nuevoUsuario = await Usuario.create({
             nombre,
@@ -40,7 +46,6 @@ const crearUsuario = async (req, res) => {
             email,
             password_hash: password,
             rol_id,
-            // Si es alumno, usa el especialidad_id enviado o el 1 por defecto
             especialidad_id: Number(rol_id) === 3 ? (especialidad_id || 1) : 1,
             curso: Number(rol_id) === 3 ? curso : null,
             division: Number(rol_id) === 3 ? division : null,
