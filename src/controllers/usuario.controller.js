@@ -213,13 +213,13 @@ const obtenerListadoProyectosUsuario = async (req, res) => {
 };
 
 /**
- * Propósito: Listar usuarios con filtros avanzados de búsqueda y pertenencia a escuela.
- * Quién la llama: Invocada por GET /api/usuarios desde usuario.routes.js.
- * Retorna: Array de objetos de usuarios ordenados por apellido.
+ * Propósito: Listar usuarios con filtros avanzados de búsqueda. Se eliminó el filtro estricto por escuela para permitir búsquedas globales en el sistema, ya que GEPRES operará para una sola escuela.
+ * A quién alimenta (quién la llama): Invocada por GET /api/usuarios desde usuario.routes.js (ej: al buscar miembros en ProyectoConfigView.vue).
+ * Qué datos retorna: Array de objetos de usuarios ordenados alfabéticamente por apellido.
  */
 const listarUsuarios = async (req, res) => {
     try {
-        const { q, curso, division, escuela_id } = req.query;
+        const { q, curso, division } = req.query;
         let filtro = {};
 
         // Filtro por términos de búsqueda (Nombre, Apellido, Email)
@@ -246,18 +246,6 @@ const listarUsuarios = async (req, res) => {
 
         if (curso) filtro.curso = curso;
         if (division) filtro.division = division;
-
-        // Lógica de Escuela: Filtra según pertenencia a usuario_escuelas
-        if (escuela_id) {
-            filtro[Op.and] = [
-                ...(filtro[Op.and] || []),
-                sequelize.literal(`EXISTS (
-                    SELECT 1 FROM usuario_escuelas 
-                    WHERE usuario_escuelas.usuario_id = usuario.id 
-                    AND usuario_escuelas.escuela_id = ${Number(escuela_id)}
-                )`)
-            ];
-        }
 
         const usuarios = await Usuario.findAll({
             where: filtro,
